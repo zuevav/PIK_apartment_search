@@ -208,6 +208,14 @@ function filterProjects() {
     renderProjectsList(filtered);
 }
 
+function clearProjectsSearch() {
+    const searchInput = document.getElementById('projects-search');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    renderProjectsList();
+}
+
 function updateProjectsDropdown() {
     const select = document.getElementById('filter-project');
     const trackedProjects = projects.filter(p => p.is_tracked);
