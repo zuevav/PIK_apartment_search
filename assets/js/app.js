@@ -124,6 +124,7 @@ async function loadProjects() {
     try {
         const data = await api('get_projects');
         projects = data.projects || [];
+        console.log('Loaded projects:', projects.length, 'first:', projects[0]);
 
         renderProjectsList();
         updateProjectsDropdown();
