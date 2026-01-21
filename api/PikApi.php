@@ -89,9 +89,59 @@ class PikApi
     }
 
     /**
-     * Get all available projects (blocks/ЖК)
+     * Get all available projects (blocks/ЖК) with apartments for sale
+     *
+     * Uses /v2/filter endpoint which returns blocks with names and flat counts
      */
     public function getProjects(): array
+    {
+        // Use filter endpoint to get blocks with full info
+        // type=1 means apartments, flatLimit=0 means don't return flats, just blocks
+        $data = $this->request('filter', [
+            'type' => 1,
+            'flatLimit' => 0,
+        ]);
+
+        if (!$data || !isset($data['blocks']) || !is_array($data['blocks'])) {
+            // Fallback to old endpoint
+            return $this->getProjectsLegacy();
+        }
+
+        $projects = [];
+        foreach ($data['blocks'] as $item) {
+            // Skip blocks without name or without available flats
+            if (empty($item['name'])) {
+                continue;
+            }
+
+            // Only include projects with apartments for sale
+            $count = $item['count'] ?? 0;
+            if ($count <= 0) {
+                continue;
+            }
+
+            $projects[] = [
+                'id' => (int) $item['id'],
+                'guid' => $item['guid'] ?? null,
+                'name' => $item['name'],
+                'name_prepositional' => $item['namePrepositional'] ?? $item['name_prepositional'] ?? null,
+                'slug' => $item['url'] ?? $this->extractSlug($item['path'] ?? ''),
+                'url' => $item['path'] ?? null,
+                'flats_count' => $count,
+                'price_min' => $item['priceMin'] ?? null,
+            ];
+        }
+
+        // Sort by name
+        usort($projects, fn($a, $b) => strcmp($a['name'], $b['name']));
+
+        return $projects;
+    }
+
+    /**
+     * Legacy method for getting projects from /v2/block
+     */
+    private function getProjectsLegacy(): array
     {
         $data = $this->request('block');
         if (!$data || !is_array($data)) {
@@ -100,14 +150,14 @@ class PikApi
 
         $projects = [];
         foreach ($data as $item) {
-            if (!isset($item['id']) || !isset($item['name'])) {
+            if (!isset($item['id'])) {
                 continue;
             }
 
             $projects[] = [
                 'id' => (int) $item['id'],
                 'guid' => $item['guid'] ?? null,
-                'name' => $item['name'],
+                'name' => $item['name'] ?? "Project #{$item['id']}",
                 'name_prepositional' => $item['name_prepositional'] ?? null,
                 'slug' => $this->extractSlug($item['url'] ?? ''),
                 'url' => $item['url'] ?? null,
@@ -118,23 +168,21 @@ class PikApi
     }
 
     /**
-     * Get flats for a specific project using search endpoint
+     * Get flats for specific projects using search endpoint
      *
-     * This uses the PIK search API which accepts filter parameters
+     * Note: PIK API doesn't return flats when filtering by block in URL,
+     * so we filter by block_id client-side after fetching
      */
     public function getFlats(array $params = []): array
     {
-        // Build search query params
+        // Extract block_ids for local filtering
+        $filterBlockIds = !empty($params['block_ids']) ? array_map('intval', (array) $params['block_ids']) : [];
+
+        // Build search query params - don't filter by block in API request
         $searchParams = [
             'type' => 1, // 1 = apartments
-            'flatLimit' => $params['limit'] ?? 1000,
-            'flatOffset' => $params['offset'] ?? 0,
+            'flatLimit' => $params['limit'] ?? 100,
         ];
-
-        // Add block IDs if specified
-        if (!empty($params['block_ids'])) {
-            $searchParams['block'] = implode(',', (array) $params['block_ids']);
-        }
 
         // Add room filter
         if (!empty($params['rooms'])) {
@@ -168,11 +216,33 @@ class PikApi
         $data = $this->request('filter', $searchParams);
 
         if (!$data) {
-            // Try alternative endpoint
-            return $this->getFlatsFromBlock($params);
+            return [];
         }
 
-        return $this->parseFlatsResponse($data);
+        // Collect flats from blocks in response
+        $allFlats = [];
+
+        if (isset($data['blocks']) && is_array($data['blocks'])) {
+            foreach ($data['blocks'] as $block) {
+                $blockId = (int) ($block['id'] ?? 0);
+
+                // Filter by block_ids if specified
+                if (!empty($filterBlockIds) && !in_array($blockId, $filterBlockIds)) {
+                    continue;
+                }
+
+                if (isset($block['flats']) && is_array($block['flats'])) {
+                    $blockFlats = $this->parseFlatsResponse(['flats' => $block['flats']]);
+                    foreach ($blockFlats as &$flat) {
+                        $flat['block_id'] = $blockId;
+                        $flat['block_name'] = $block['name'] ?? null;
+                    }
+                    $allFlats = array_merge($allFlats, $blockFlats);
+                }
+            }
+        }
+
+        return $allFlats;
     }
 
     /**
@@ -248,6 +318,11 @@ class PikApi
         }
 
         foreach ($items as $item) {
+            // Skip if item is not an array (might be just an ID)
+            if (!is_array($item)) {
+                continue;
+            }
+
             $parsed = $this->parseFlatData($item);
             if ($parsed) {
                 $flats[] = $parsed;
@@ -298,6 +373,35 @@ class PikApi
             $url = "{$this->siteUrl}/flat/{$data['id']}";
         }
 
+        // Extract finishing type
+        $finishing = null;
+        if (isset($data['finishes']) && is_array($data['finishes']) && !empty($data['finishes'])) {
+            $finish = $data['finishes'][0];
+            $finishing = $finish['type'] ?? null;
+        } elseif (isset($data['finishing'])) {
+            $finishing = is_string($data['finishing']) ? $data['finishing'] : null;
+        } elseif (isset($data['decoration'])) {
+            $finishing = is_string($data['decoration']) ? $data['decoration'] : null;
+        }
+
+        // Extract bulk_id (can be array)
+        $bulkId = null;
+        if (isset($data['bulk_id'])) {
+            $bulkId = is_array($data['bulk_id']) ? ($data['bulk_id'][0] ?? null) : $data['bulk_id'];
+        } elseif (isset($data['bulkId'])) {
+            $bulkId = $data['bulkId'];
+        } elseif (isset($data['bulks']) && is_array($data['bulks'])) {
+            $bulkId = $data['bulks'][0] ?? null;
+        }
+
+        // Extract section (can be array)
+        $section = null;
+        if (isset($data['section'])) {
+            $section = is_array($data['section']) ? ($data['section'][0] ?? null) : $data['section'];
+        } elseif (isset($data['sections']) && is_array($data['sections'])) {
+            $section = $data['sections'][0] ?? null;
+        }
+
         return [
             'pik_id' => (int) $data['id'],
             'rooms' => $rooms,
@@ -306,16 +410,15 @@ class PikApi
             'floors_total' => $floorsTotal ? (int) $floorsTotal : null,
             'price' => (int) $price,
             'price_per_meter' => $pricePerMeter,
-            'address' => $data['address'] ?? $data['block']['address'] ?? null,
-            'bulk_id' => $data['bulk_id'] ?? $data['bulkId'] ?? $data['bulk']['id'] ?? null,
-            'bulk_name' => $data['bulk_name'] ?? $data['bulk']['name'] ?? null,
-            'section' => $data['section'] ?? $data['entrance'] ?? null,
-            'finishing' => $data['finishing'] ?? $data['decoration'] ?? null,
+            'address' => $data['address'] ?? null,
+            'bulk_id' => $bulkId,
+            'bulk_name' => $data['bulk_name'] ?? null,
+            'section' => $section,
+            'finishing' => $finishing,
             'settlement_date' => $settlementDate,
             'url' => $url,
             'is_studio' => $data['is_studio'] ?? $data['isStudio'] ?? ($rooms === 0),
             'discount' => $data['discount'] ?? null,
-            'raw' => $data, // Keep raw data for debugging
         ];
     }
 

@@ -186,8 +186,10 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 </div>
                 <div class="card-body">
                     <p class="mb-2">Отметьте проекты, которые хотите отслеживать: <strong id="projects-count"></strong></p>
-                    <div class="filter-group mb-2">
-                        <input type="text" id="projects-search" placeholder="Поиск по названию ЖК...">
+                    <div class="filter-group mb-2" style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="projects-search" placeholder="Поиск по названию ЖК..." style="flex: 1;">
+                        <button class="btn btn-primary btn-sm" onclick="filterProjects()">Искать</button>
+                        <button class="btn btn-outline btn-sm" onclick="clearProjectsSearch()">Сбросить</button>
                     </div>
                     <div id="projects-list" class="projects-list">
                         <div class="loading">
