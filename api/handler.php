@@ -15,6 +15,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// Parse JSON input for POST/PUT requests
+$rawInput = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $rawInput = file_get_contents('php://input');
+    if (!empty($rawInput)) {
+        $json = json_decode($rawInput, true);
+        if (is_array($json)) {
+            $_POST = array_merge($_POST, $json);
+        }
+    }
+}
+
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/PikApi.php';
 require_once __DIR__ . '/Auth.php';
@@ -49,13 +61,17 @@ try {
             break;
 
         case 'track_project':
+            // Debug: log what we receive
+            error_log("track_project - Raw input: " . $rawInput);
+            error_log("track_project - POST: " . json_encode($_POST));
+
             $projectId = (int) ($_POST['project_id'] ?? 0);
             $tracked = filter_var($_POST['tracked'] ?? true, FILTER_VALIDATE_BOOLEAN);
             if ($projectId > 0) {
                 $db->setProjectTracked($projectId, $tracked);
                 respond(['success' => true]);
             } else {
-                respond(['error' => 'Invalid project ID'], 400);
+                respond(['error' => 'Invalid project ID', 'received' => $_POST, 'raw' => $rawInput], 400);
             }
             break;
 
