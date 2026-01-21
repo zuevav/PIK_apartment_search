@@ -25,16 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function initProjectsSearch() {
     const searchInput = document.getElementById('projects-search');
     if (searchInput) {
-        console.log('Projects search initialized');
-        searchInput.addEventListener('input', function() {
-            filterProjects();
-        });
-        // Also trigger on keyup as fallback
-        searchInput.addEventListener('keyup', function() {
-            filterProjects();
-        });
-    } else {
-        console.error('projects-search input not found');
+        searchInput.addEventListener('input', filterProjects);
+        searchInput.addEventListener('keyup', filterProjects);
     }
 }
 
@@ -75,17 +67,14 @@ async function api(action, params = {}, method = 'GET') {
             options.body = JSON.stringify(params);
         }
 
-        console.log('API Request:', method, url);
         const response = await fetch(url, options);
 
         const text = await response.text();
-        console.log('API Response:', response.status, text.substring(0, 200));
-
         let data;
         try {
             data = JSON.parse(text);
         } catch (e) {
-            console.error('JSON Parse Error:', e, 'Response:', text);
+            console.error('JSON Parse Error:', text.substring(0, 200));
             throw new Error('Invalid JSON response from server');
         }
 
@@ -124,8 +113,6 @@ async function loadProjects() {
     try {
         const data = await api('get_projects');
         projects = data.projects || [];
-        console.log('Loaded projects:', projects.length, 'first:', projects[0]);
-
         renderProjectsList();
         updateProjectsDropdown();
     } catch (e) {
@@ -186,25 +173,16 @@ function renderProjectsList(filteredProjects = null) {
 
 function filterProjects() {
     const searchInput = document.getElementById('projects-search');
-    if (!searchInput) {
-        console.error('Search input not found');
-        return;
-    }
+    if (!searchInput) return;
 
     const query = searchInput.value.toLowerCase().trim();
-    console.log('Filtering projects, query:', query, 'total projects:', projects.length);
 
     if (!query) {
         renderProjectsList();
         return;
     }
 
-    const filtered = projects.filter(p => {
-        if (!p || !p.name) return false;
-        return p.name.toLowerCase().includes(query);
-    });
-
-    console.log('Filtered results:', filtered.length);
+    const filtered = projects.filter(p => p && p.name && p.name.toLowerCase().includes(query));
     renderProjectsList(filtered);
 }
 
@@ -804,3 +782,25 @@ document.addEventListener('keydown', (e) => {
         });
     }
 });
+
+// Expose functions to global scope for onclick handlers
+window.filterProjects = filterProjects;
+window.clearProjectsSearch = clearProjectsSearch;
+window.syncProjects = syncProjects;
+window.toggleProject = toggleProject;
+window.loadApartments = loadApartments;
+window.resetFilters = resetFilters;
+window.fetchApartments = fetchApartments;
+window.showApartmentDetails = showApartmentDetails;
+window.showFilterModal = showFilterModal;
+window.saveCurrentFilter = saveCurrentFilter;
+window.doSaveFilter = doSaveFilter;
+window.applyFilter = applyFilter;
+window.deleteFilter = deleteFilter;
+window.saveSettings = saveSettings;
+window.testApi = testApi;
+window.changePassword = changePassword;
+window.prevPage = prevPage;
+window.nextPage = nextPage;
+window.openModal = openModal;
+window.closeModal = closeModal;

@@ -52,8 +52,18 @@ try {
 
         case 'sync_projects':
             $projects = $pik->getProjects();
+
+            // Get currently tracked project PIK IDs to preserve tracking status
+            $trackedBefore = $db->getProjects(true);
+            $trackedPikIds = array_column($trackedBefore, 'pik_id');
+
+            // Delete all old projects and insert fresh data
+            $db->getPdo()->exec("DELETE FROM projects");
+
             $saved = 0;
             foreach ($projects as $project) {
+                // Restore tracked status if was tracked before
+                $project['is_tracked'] = in_array($project['id'], $trackedPikIds);
                 $db->saveProject($project);
                 $saved++;
             }
@@ -61,17 +71,13 @@ try {
             break;
 
         case 'track_project':
-            // Debug: log what we receive
-            error_log("track_project - Raw input: " . $rawInput);
-            error_log("track_project - POST: " . json_encode($_POST));
-
             $projectId = (int) ($_POST['project_id'] ?? 0);
             $tracked = filter_var($_POST['tracked'] ?? true, FILTER_VALIDATE_BOOLEAN);
             if ($projectId > 0) {
                 $db->setProjectTracked($projectId, $tracked);
                 respond(['success' => true]);
             } else {
-                respond(['error' => 'Invalid project ID', 'received' => $_POST, 'raw' => $rawInput], 400);
+                respond(['error' => 'Invalid project ID'], 400);
             }
             break;
 

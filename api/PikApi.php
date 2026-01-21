@@ -96,10 +96,11 @@ class PikApi
     public function getProjects(): array
     {
         // Use filter endpoint to get blocks with full info
-        // type=1 means apartments, flatLimit=0 means don't return flats, just blocks
+        // type=1 means apartments, blockLimit=100 returns all blocks (default is 5)
         $data = $this->request('filter', [
             'type' => 1,
             'flatLimit' => 0,
+            'blockLimit' => 100,
         ]);
 
         if (!$data || !isset($data['blocks']) || !is_array($data['blocks'])) {
