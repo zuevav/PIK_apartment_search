@@ -103,9 +103,20 @@ async function loadProjects() {
 
 function renderProjectsList(filteredProjects = null) {
     const container = document.getElementById('projects-list');
+    const countEl = document.getElementById('projects-count');
     const displayProjects = filteredProjects !== null ? filteredProjects : projects;
 
+    // Update counter
+    if (countEl) {
+        if (filteredProjects !== null) {
+            countEl.textContent = `(найдено ${displayProjects.length} из ${projects.length})`;
+        } else {
+            countEl.textContent = `(всего ${projects.length})`;
+        }
+    }
+
     if (projects.length === 0) {
+        if (countEl) countEl.textContent = '';
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">🏗️</div>
