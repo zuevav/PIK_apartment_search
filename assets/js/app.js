@@ -13,12 +13,23 @@ let projects = [];
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
+    initProjectsSearch();
     loadStats();
     loadProjects();
     loadApartments();
     loadFilters();
     loadSettings();
 });
+
+// Projects search
+function initProjectsSearch() {
+    const searchInput = document.getElementById('projects-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterProjects();
+        });
+    }
+}
 
 // Tabs
 function initTabs() {
