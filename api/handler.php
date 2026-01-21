@@ -15,6 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// Parse JSON input for POST/PUT requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $input = file_get_contents('php://input');
+    if (!empty($input)) {
+        $json = json_decode($input, true);
+        if (is_array($json)) {
+            $_POST = array_merge($_POST, $json);
+        }
+    }
+}
+
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/PikApi.php';
 require_once __DIR__ . '/Auth.php';
