@@ -149,6 +149,69 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         .my-filters-link:hover {
             text-decoration: underline;
         }
+
+        /* Room buttons */
+        .rooms-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .room-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--pik-white);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .room-btn:hover {
+            border-color: var(--pik-orange);
+        }
+        .room-btn.active {
+            background: var(--pik-orange);
+            border-color: var(--pik-orange);
+            color: white;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .loading-overlay .spinner {
+            width: 50px;
+            height: 50px;
+            border-width: 4px;
+        }
+        .loading-overlay .loading-text {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            color: var(--pik-dark);
+            font-weight: 500;
+        }
+        .loading-overlay .loading-progress {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--pik-gray);
+        }
     </style>
 </head>
 <body>
@@ -238,20 +301,20 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                     <div class="criteria-grid">
                         <div class="filter-group">
                             <label>Количество комнат</label>
-                            <div class="filter-row">
-                                <input type="number" id="filter-rooms-min" placeholder="от" min="0" max="10">
-                                <span style="padding: 0 0.5rem;">—</span>
-                                <input type="number" id="filter-rooms-max" placeholder="до" min="0" max="10">
+                            <div class="rooms-buttons" id="rooms-buttons">
+                                <button type="button" class="room-btn" data-rooms="0">Студия</button>
+                                <button type="button" class="room-btn" data-rooms="1">1</button>
+                                <button type="button" class="room-btn" data-rooms="2">2</button>
+                                <button type="button" class="room-btn" data-rooms="3">3+</button>
                             </div>
-                            <small style="color:#888;">0 = студия</small>
                         </div>
 
                         <div class="filter-group">
-                            <label>Цена (₽)</label>
+                            <label>Цена (млн ₽)</label>
                             <div class="filter-row">
-                                <input type="number" id="filter-price-min" placeholder="от" min="0" step="500000">
+                                <input type="number" id="filter-price-min" placeholder="от" min="0" step="0.5">
                                 <span style="padding: 0 0.5rem;">—</span>
-                                <input type="number" id="filter-price-max" placeholder="до" min="0" step="500000">
+                                <input type="number" id="filter-price-max" placeholder="до" min="0" step="0.5">
                             </div>
                         </div>
 
@@ -442,6 +505,13 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         </div>
     </main>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Загрузка квартир...</div>
+        <div class="loading-progress" id="loading-progress"></div>
+    </div>
+
     <!-- Apartment Detail Modal -->
     <div class="modal-overlay" id="apartment-modal">
         <div class="modal">
@@ -514,14 +584,22 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 btn.disabled = true;
             }
 
+            showLoadingOverlay('Загрузка квартир с PIK...');
+            updateLoadingProgress('Подключение к API...');
+
             try {
-                window.showAlert('Загрузка данных с PIK...', 'info');
                 const data = await window.api('fetch_apartments');
+                updateLoadingProgress(`Загружено: ${data.fetched}, новых: ${data.new}`);
+
+                // Small delay to show the result
+                await new Promise(r => setTimeout(r, 500));
+
                 window.showAlert(`Загружено: ${data.fetched}, новых: ${data.new}, обновлено: ${data.updated}`, 'success');
                 window.loadApartments();
             } catch (e) {
                 window.showAlert('Ошибка загрузки: ' + e.message, 'danger');
             } finally {
+                hideLoadingOverlay();
                 if (btn) {
                     btn.textContent = 'Обновить с PIK';
                     btn.disabled = false;
@@ -634,6 +712,40 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             updateSelectedCount();
         };
 
+        // Room buttons
+        function initRoomButtons() {
+            const buttons = document.querySelectorAll('.room-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btn.classList.toggle('active');
+                });
+            });
+        }
+
+        function getSelectedRooms() {
+            const selected = [];
+            document.querySelectorAll('.room-btn.active').forEach(btn => {
+                selected.push(parseInt(btn.dataset.rooms));
+            });
+            return selected;
+        }
+
+        // Loading overlay
+        function showLoadingOverlay(text = 'Загрузка квартир...') {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.querySelector('.loading-text').textContent = text;
+            overlay.querySelector('.loading-progress').textContent = '';
+            overlay.classList.add('active');
+        }
+
+        function updateLoadingProgress(text) {
+            document.getElementById('loading-progress').textContent = text;
+        }
+
+        function hideLoadingOverlay() {
+            document.getElementById('loading-overlay').classList.remove('active');
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Projects search on input
@@ -649,6 +761,9 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                     if (currentStep === 3) window.loadApartments();
                 });
             }
+
+            // Initialize room buttons
+            initRoomButtons();
         });
     </script>
 </body>
