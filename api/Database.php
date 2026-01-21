@@ -289,11 +289,44 @@ class Database
             $where[] = "a.project_id = :project_id";
             $params['project_id'] = $filters['project_id'];
         }
-        if (!empty($filters['rooms_min'])) {
+        // Support for multiple room values (e.g., "0,1,2")
+        if (!empty($filters['rooms'])) {
+            $roomValues = is_array($filters['rooms']) ? $filters['rooms'] : explode(',', $filters['rooms']);
+            $roomPlaceholders = [];
+            $hasThreePlus = false;
+            $regularRooms = [];
+
+            foreach ($roomValues as $i => $room) {
+                $room = (int)$room;
+                if ($room === 3) {
+                    // 3+ means 3 or more rooms
+                    $hasThreePlus = true;
+                } else {
+                    $regularRooms[] = $room;
+                }
+            }
+
+            $roomConditions = [];
+            if (!empty($regularRooms)) {
+                foreach ($regularRooms as $i => $room) {
+                    $key = "room_{$i}";
+                    $roomPlaceholders[] = ":{$key}";
+                    $params[$key] = $room;
+                }
+                $roomConditions[] = "a.rooms IN (" . implode(',', $roomPlaceholders) . ")";
+            }
+            if ($hasThreePlus) {
+                $roomConditions[] = "a.rooms >= 3";
+            }
+
+            if (!empty($roomConditions)) {
+                $where[] = "(" . implode(' OR ', $roomConditions) . ")";
+            }
+        } elseif (!empty($filters['rooms_min'])) {
             $where[] = "a.rooms >= :rooms_min";
             $params['rooms_min'] = $filters['rooms_min'];
         }
-        if (!empty($filters['rooms_max'])) {
+        if (!empty($filters['rooms_max']) && empty($filters['rooms'])) {
             $where[] = "a.rooms <= :rooms_max";
             $params['rooms_max'] = $filters['rooms_max'];
         }

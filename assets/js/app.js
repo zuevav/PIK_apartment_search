@@ -278,12 +278,28 @@ function getFilters() {
         projectIds = projects.filter(p => p.is_tracked).map(p => p.id);
     }
 
+    // Get selected rooms from buttons (if exists) or from inputs
+    let roomsSelected = [];
+    const roomButtons = document.querySelectorAll('.room-btn.active');
+    if (roomButtons.length > 0) {
+        roomButtons.forEach(btn => {
+            roomsSelected.push(parseInt(btn.dataset.rooms));
+        });
+    }
+
+    // Price in millions - convert to rubles
+    const priceMinEl = document.getElementById('filter-price-min');
+    const priceMaxEl = document.getElementById('filter-price-max');
+    const priceMin = priceMinEl?.value ? Math.round(parseFloat(priceMinEl.value) * 1000000) : '';
+    const priceMax = priceMaxEl?.value ? Math.round(parseFloat(priceMaxEl.value) * 1000000) : '';
+
     return {
         project_ids: projectIds,
-        rooms_min: document.getElementById('filter-rooms-min')?.value || '',
-        rooms_max: document.getElementById('filter-rooms-max')?.value || '',
-        price_min: document.getElementById('filter-price-min')?.value || '',
-        price_max: document.getElementById('filter-price-max')?.value || '',
+        rooms: roomsSelected.length > 0 ? roomsSelected.join(',') : '',
+        rooms_min: '',
+        rooms_max: '',
+        price_min: priceMin,
+        price_max: priceMax,
         area_min: document.getElementById('filter-area-min')?.value || '',
         area_max: document.getElementById('filter-area-max')?.value || '',
         floor_min: document.getElementById('filter-floor-min')?.value || '',
@@ -296,8 +312,11 @@ function resetFilters() {
     const filterProject = document.getElementById('filter-project');
     if (filterProject) filterProject.value = '';
 
-    const roomsMin = document.getElementById('filter-rooms-min');
-    const roomsMax = document.getElementById('filter-rooms-max');
+    // Reset room buttons
+    document.querySelectorAll('.room-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
     const priceMin = document.getElementById('filter-price-min');
     const priceMax = document.getElementById('filter-price-max');
     const areaMin = document.getElementById('filter-area-min');
@@ -306,8 +325,6 @@ function resetFilters() {
     const floorMax = document.getElementById('filter-floor-max');
     const filterOrder = document.getElementById('filter-order');
 
-    if (roomsMin) roomsMin.value = '';
-    if (roomsMax) roomsMax.value = '';
     if (priceMin) priceMin.value = '';
     if (priceMax) priceMax.value = '';
     if (areaMin) areaMin.value = '';
@@ -540,7 +557,10 @@ function renderFiltersTable(filters) {
     tbody.innerHTML = filters.map(f => {
         const params = [];
         if (f.rooms_min || f.rooms_max) params.push(`Комнаты: ${f.rooms_min || ''}–${f.rooms_max || ''}`);
-        if (f.price_min || f.price_max) params.push(`Цена: ${formatPrice(f.price_min) || ''}–${formatPrice(f.price_max) || ''}`);
+        // Show price in millions
+        const priceMinMln = f.price_min ? (f.price_min / 1000000).toFixed(1) + ' млн' : '';
+        const priceMaxMln = f.price_max ? (f.price_max / 1000000).toFixed(1) + ' млн' : '';
+        if (f.price_min || f.price_max) params.push(`Цена: ${priceMinMln}–${priceMaxMln}`);
         if (f.area_min || f.area_max) params.push(`Площадь: ${f.area_min || ''}–${f.area_max || ''} м²`);
         if (f.floor_min || f.floor_max) params.push(`Этаж: ${f.floor_min || ''}–${f.floor_max || ''}`);
 
@@ -634,9 +654,21 @@ async function applyFilter(filterId) {
             });
         }
 
-        // Set filter values
-        const roomsMin = document.getElementById('filter-rooms-min');
-        const roomsMax = document.getElementById('filter-rooms-max');
+        // Set room buttons (deselect all first)
+        document.querySelectorAll('.room-btn').forEach(btn => {
+            btn.classList.remove('active');
+            // Activate based on saved filter rooms
+            const rooms = parseInt(btn.dataset.rooms);
+            if (f.rooms_min !== null && f.rooms_max !== null && rooms >= f.rooms_min && rooms <= f.rooms_max) {
+                btn.classList.add('active');
+            } else if (f.rooms_min !== null && f.rooms_max === null && rooms >= f.rooms_min) {
+                btn.classList.add('active');
+            } else if (f.rooms_min === null && f.rooms_max !== null && rooms <= f.rooms_max) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Set filter values (price in millions)
         const priceMin = document.getElementById('filter-price-min');
         const priceMax = document.getElementById('filter-price-max');
         const areaMin = document.getElementById('filter-area-min');
@@ -644,10 +676,9 @@ async function applyFilter(filterId) {
         const floorMin = document.getElementById('filter-floor-min');
         const floorMax = document.getElementById('filter-floor-max');
 
-        if (roomsMin) roomsMin.value = f.rooms_min || '';
-        if (roomsMax) roomsMax.value = f.rooms_max || '';
-        if (priceMin) priceMin.value = f.price_min || '';
-        if (priceMax) priceMax.value = f.price_max || '';
+        // Convert price from rubles to millions
+        if (priceMin) priceMin.value = f.price_min ? (f.price_min / 1000000) : '';
+        if (priceMax) priceMax.value = f.price_max ? (f.price_max / 1000000) : '';
         if (areaMin) areaMin.value = f.area_min || '';
         if (areaMax) areaMax.value = f.area_max || '';
         if (floorMin) floorMin.value = f.floor_min || '';
