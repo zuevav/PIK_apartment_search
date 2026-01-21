@@ -291,7 +291,10 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             <div class="card">
                 <div class="card-header">
                     <span>Результаты поиска: <strong id="apartments-count">0</strong> квартир</span>
-                    <div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-primary btn-sm" onclick="fetchFromPik()" id="btn-fetch-pik">
+                            Загрузить с PIK
+                        </button>
                         <select id="filter-order" style="margin-right: 0.5rem;">
                             <option value="price ASC">Цена ↑</option>
                             <option value="price DESC">Цена ↓</option>
@@ -490,6 +493,24 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
 
         function searchApartments() {
             goToStep(3);
+        }
+
+        async function fetchFromPik() {
+            const btn = document.getElementById('btn-fetch-pik');
+            const originalText = btn.textContent;
+            btn.textContent = 'Загрузка...';
+            btn.disabled = true;
+
+            try {
+                const data = await window.api('fetch_apartments');
+                window.showAlert(`Загружено: ${data.fetched}, новых: ${data.new}, обновлено: ${data.updated}`, 'success');
+                window.loadApartments();
+            } catch (e) {
+                window.showAlert('Ошибка загрузки: ' + e.message, 'danger');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         }
 
         function updateSelectedCount() {
