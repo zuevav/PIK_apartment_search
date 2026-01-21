@@ -99,10 +99,15 @@ async function api(action, params = {}, method = 'GET') {
 async function loadStats() {
     try {
         const data = await api('get_stats');
-        document.getElementById('stat-apartments').textContent = data.stats.total_apartments || 0;
-        document.getElementById('stat-projects').textContent = data.stats.tracked_projects || 0;
-        document.getElementById('stat-new-today').textContent = data.stats.new_apartments_today || 0;
-        document.getElementById('stat-price-changes').textContent = data.stats.price_changes_today || 0;
+        const statApartments = document.getElementById('stat-apartments');
+        const statProjects = document.getElementById('stat-projects');
+        const statNewToday = document.getElementById('stat-new-today');
+        const statPriceChanges = document.getElementById('stat-price-changes');
+
+        if (statApartments) statApartments.textContent = data.stats.total_apartments || 0;
+        if (statProjects) statProjects.textContent = data.stats.tracked_projects || 0;
+        if (statNewToday) statNewToday.textContent = data.stats.new_apartments_today || 0;
+        if (statPriceChanges) statPriceChanges.textContent = data.stats.price_changes_today || 0;
     } catch (e) {
         console.error('Failed to load stats:', e);
     }
@@ -231,6 +236,12 @@ async function toggleProject(projectId, tracked) {
 // Apartments
 async function loadApartments() {
     const filters = getFilters();
+
+    // Convert project_ids array to comma-separated string for URL
+    if (filters.project_ids && Array.isArray(filters.project_ids)) {
+        filters.project_ids = filters.project_ids.join(',');
+    }
+
     filters.limit = itemsPerPage;
     filters.offset = currentPage * itemsPerPage;
 
@@ -250,17 +261,29 @@ async function loadApartments() {
 }
 
 function getFilters() {
+    // Get tracked project IDs (wizard mode uses checkboxes, not dropdown)
+    const filterProjectEl = document.getElementById('filter-project');
+    let projectIds = [];
+
+    if (filterProjectEl && filterProjectEl.value) {
+        // Old dropdown mode
+        projectIds = [parseInt(filterProjectEl.value)];
+    } else {
+        // Wizard mode - use tracked projects
+        projectIds = projects.filter(p => p.is_tracked).map(p => p.id);
+    }
+
     return {
-        project_id: document.getElementById('filter-project').value,
-        rooms_min: document.getElementById('filter-rooms-min').value,
-        rooms_max: document.getElementById('filter-rooms-max').value,
-        price_min: document.getElementById('filter-price-min').value,
-        price_max: document.getElementById('filter-price-max').value,
-        area_min: document.getElementById('filter-area-min').value,
-        area_max: document.getElementById('filter-area-max').value,
-        floor_min: document.getElementById('filter-floor-min').value,
-        floor_max: document.getElementById('filter-floor-max').value,
-        order_by: document.getElementById('filter-order').value
+        project_ids: projectIds,
+        rooms_min: document.getElementById('filter-rooms-min')?.value || '',
+        rooms_max: document.getElementById('filter-rooms-max')?.value || '',
+        price_min: document.getElementById('filter-price-min')?.value || '',
+        price_max: document.getElementById('filter-price-max')?.value || '',
+        area_min: document.getElementById('filter-area-min')?.value || '',
+        area_max: document.getElementById('filter-area-max')?.value || '',
+        floor_min: document.getElementById('filter-floor-min')?.value || '',
+        floor_max: document.getElementById('filter-floor-max')?.value || '',
+        order_by: document.getElementById('filter-order')?.value || 'price ASC'
     };
 }
 
@@ -789,6 +812,8 @@ window.clearProjectsSearch = clearProjectsSearch;
 window.syncProjects = syncProjects;
 window.toggleProject = toggleProject;
 window.loadApartments = loadApartments;
+window.loadProjects = loadProjects;
+window.loadFilters = loadFilters;
 window.resetFilters = resetFilters;
 window.fetchApartments = fetchApartments;
 window.showApartmentDetails = showApartmentDetails;
@@ -804,3 +829,6 @@ window.prevPage = prevPage;
 window.nextPage = nextPage;
 window.openModal = openModal;
 window.closeModal = closeModal;
+window.showAlert = showAlert;
+window.getFilters = getFilters;
+window.api = api;

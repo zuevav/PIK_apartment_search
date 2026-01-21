@@ -83,8 +83,17 @@ try {
 
         // Apartments
         case 'get_apartments':
+            // Support both single project_id and array project_ids
+            $projectIds = null;
+            if (!empty($_GET['project_ids'])) {
+                // Comma-separated list from URL
+                $projectIds = array_filter(array_map('intval', explode(',', $_GET['project_ids'])));
+            } elseif (!empty($_GET['project_id'])) {
+                $projectIds = [(int) $_GET['project_id']];
+            }
+
             $filters = [
-                'project_id' => $_GET['project_id'] ?? null,
+                'project_ids' => $projectIds,
                 'rooms_min' => $_GET['rooms_min'] ?? null,
                 'rooms_max' => $_GET['rooms_max'] ?? null,
                 'price_min' => $_GET['price_min'] ?? null,
@@ -98,7 +107,7 @@ try {
             $limit = min((int) ($_GET['limit'] ?? 50), 200);
             $offset = (int) ($_GET['offset'] ?? 0);
 
-            $result = $db->getApartments(array_filter($filters), $limit, $offset);
+            $result = $db->getApartments(array_filter($filters, fn($v) => $v !== null), $limit, $offset);
             respond($result);
             break;
 
