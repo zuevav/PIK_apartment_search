@@ -80,9 +80,9 @@ class PikApi
             return null;
         }
 
-        // Rate limiting
+        // Rate limiting (milliseconds)
         if ($this->delay > 0) {
-            sleep($this->delay);
+            usleep($this->delay * 1000);
         }
 
         return $data;
@@ -169,78 +169,85 @@ class PikApi
     }
 
     /**
-     * Get flats for specific projects using search endpoint
+     * Get flats for specific projects using search endpoint with pagination
      *
-     * Note: PIK API doesn't return flats when filtering by block in URL,
-     * so we filter by block_id client-side after fetching
+     * Uses flatOffset parameter to paginate through all results
      */
     public function getFlats(array $params = []): array
     {
-        // Extract block_ids for local filtering
-        $filterBlockIds = !empty($params['block_ids']) ? array_map('intval', (array) $params['block_ids']) : [];
+        $blockIds = !empty($params['block_ids']) ? array_map('intval', (array) $params['block_ids']) : [];
 
-        // Build search query params - don't filter by block in API request
-        // Use high limits to get all flats from all blocks
-        $searchParams = [
-            'type' => 1, // 1 = apartments
-            'flatLimit' => $params['limit'] ?? 500,
-            'blockLimit' => 100, // Get all blocks
-        ];
-
-        // Add room filter
-        if (!empty($params['rooms'])) {
-            $searchParams['rooms'] = implode(',', (array) $params['rooms']);
-        }
-
-        // Add price filter
-        if (!empty($params['price_min'])) {
-            $searchParams['priceMin'] = $params['price_min'];
-        }
-        if (!empty($params['price_max'])) {
-            $searchParams['priceMax'] = $params['price_max'];
-        }
-
-        // Add area filter
-        if (!empty($params['area_min'])) {
-            $searchParams['areaMin'] = $params['area_min'];
-        }
-        if (!empty($params['area_max'])) {
-            $searchParams['areaMax'] = $params['area_max'];
-        }
-
-        // Add floor filter
-        if (!empty($params['floor_min'])) {
-            $searchParams['floorMin'] = $params['floor_min'];
-        }
-        if (!empty($params['floor_max'])) {
-            $searchParams['floorMax'] = $params['floor_max'];
-        }
-
-        $data = $this->request('filter', $searchParams);
-
-        if (!$data) {
+        if (empty($blockIds)) {
             return [];
         }
 
-        // Collect flats from blocks in response
         $allFlats = [];
 
-        if (isset($data['blocks']) && is_array($data['blocks'])) {
-            foreach ($data['blocks'] as $block) {
-                $blockId = (int) ($block['id'] ?? 0);
+        // Fetch flats for each block separately with pagination
+        foreach ($blockIds as $blockId) {
+            $offset = 0;
+            $limit = 50; // API returns max 50 per request
 
-                // Filter by block_ids if specified
-                if (!empty($filterBlockIds) && !in_array($blockId, $filterBlockIds)) {
-                    continue;
+            while (true) {
+                $searchParams = [
+                    'type' => 1,
+                    'block' => $blockId,
+                    'flatLimit' => $limit,
+                    'flatOffset' => $offset,
+                    'onlyFlats' => 1,
+                ];
+
+                // Add room filter
+                if (!empty($params['rooms'])) {
+                    $searchParams['rooms'] = implode(',', (array) $params['rooms']);
                 }
 
-                if (isset($block['flats']) && is_array($block['flats'])) {
-                    $blockFlats = $this->parseFlatsResponse(['flats' => $block['flats']]);
-                    foreach ($blockFlats as &$flat) {
-                        $flat['block_id'] = $blockId;
-                        $flat['block_name'] = $block['name'] ?? null;
-                    }
-                    $allFlats = array_merge($allFlats, $blockFlats);
+                // Add price filter
+                if (!empty($params['price_min'])) {
+                    $searchParams['priceMin'] = $params['price_min'];
+                }
+                if (!empty($params['price_max'])) {
+                    $searchParams['priceMax'] = $params['price_max'];
+                }
+
+                // Add area filter
+                if (!empty($params['area_min'])) {
+                    $searchParams['areaMin'] = $params['area_min'];
+                }
+                if (!empty($params['area_max'])) {
+                    $searchParams['areaMax'] = $params['area_max'];
+                }
+
+                $data = $this->request('filter', $searchParams);
+
+                if (!$data || !isset($data['blocks'][0]['flats'])) {
+                    break;
+                }
+
+                $blockData = $data['blocks'][0];
+                $flats = $blockData['flats'] ?? [];
+
+                if (empty($flats)) {
+                    break;
+                }
+
+                $blockFlats = $this->parseFlatsResponse(['flats' => $flats]);
+                foreach ($blockFlats as &$flat) {
+                    $flat['block_id'] = $blockId;
+                    $flat['block_name'] = $blockData['name'] ?? null;
+                }
+                $allFlats = array_merge($allFlats, $blockFlats);
+
+                // If we got less than limit, we've reached the end
+                if (count($flats) < $limit) {
+                    break;
+                }
+
+                $offset += $limit;
+
+                // Safety limit to prevent infinite loops
+                if ($offset > 5000) {
+                    break;
                 }
             }
         }

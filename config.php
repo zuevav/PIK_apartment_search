@@ -14,7 +14,7 @@ return [
 
     // Request settings
     'request_timeout' => 30,
-    'request_delay' => 2, // seconds between requests to avoid rate limiting
+    'request_delay' => 100, // milliseconds between requests to avoid rate limiting
 
     // Email notifications
     'email' => [
