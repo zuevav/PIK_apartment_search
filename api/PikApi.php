@@ -180,9 +180,11 @@ class PikApi
         $filterBlockIds = !empty($params['block_ids']) ? array_map('intval', (array) $params['block_ids']) : [];
 
         // Build search query params - don't filter by block in API request
+        // Use high limits to get all flats from all blocks
         $searchParams = [
             'type' => 1, // 1 = apartments
-            'flatLimit' => $params['limit'] ?? 100,
+            'flatLimit' => $params['limit'] ?? 500,
+            'blockLimit' => 100, // Get all blocks
         ];
 
         // Add room filter

@@ -126,26 +126,73 @@ try {
             break;
 
         case 'fetch_apartments':
-            // Fetch fresh data from PIK API for tracked projects
+            // Fetch apartments from PIK API using active filters
             $trackedProjects = $db->getProjects(true);
 
             if (empty($trackedProjects)) {
                 respond(['error' => 'No tracked projects. Please add projects to track first.'], 400);
             }
 
+            // Build map of pik_id => project for quick lookup
+            $projectMap = [];
+            $trackedPikIds = [];
+            foreach ($trackedProjects as $project) {
+                $projectMap[$project['pik_id']] = $project;
+                $trackedPikIds[] = $project['pik_id'];
+            }
+
+            // Get active filters and combine their criteria
+            $activeFilters = $db->getFilters(true);
+            $apiParams = [
+                'block_ids' => $trackedPikIds,
+                'limit' => 1000,
+            ];
+
+            // Apply filter criteria if any active filters exist
+            if (!empty($activeFilters)) {
+                // Combine criteria from all active filters (use min/max ranges)
+                $priceMin = null;
+                $priceMax = null;
+                $areaMin = null;
+                $areaMax = null;
+                $roomsSet = [];
+
+                foreach ($activeFilters as $filter) {
+                    if ($filter['price_min']) $priceMin = $priceMin ? min($priceMin, $filter['price_min']) : $filter['price_min'];
+                    if ($filter['price_max']) $priceMax = $priceMax ? max($priceMax, $filter['price_max']) : $filter['price_max'];
+                    if ($filter['area_min']) $areaMin = $areaMin ? min($areaMin, $filter['area_min']) : $filter['area_min'];
+                    if ($filter['area_max']) $areaMax = $areaMax ? max($areaMax, $filter['area_max']) : $filter['area_max'];
+                    if ($filter['rooms_min']) {
+                        for ($r = $filter['rooms_min']; $r <= ($filter['rooms_max'] ?? 5); $r++) {
+                            $roomsSet[$r] = true;
+                        }
+                    }
+                }
+
+                if ($priceMin) $apiParams['price_min'] = $priceMin;
+                if ($priceMax) $apiParams['price_max'] = $priceMax;
+                if ($areaMin) $apiParams['area_min'] = $areaMin;
+                if ($areaMax) $apiParams['area_max'] = $areaMax;
+                if (!empty($roomsSet)) $apiParams['rooms'] = array_keys($roomsSet);
+            }
+
             $results = [
                 'fetched' => 0,
                 'new' => 0,
                 'updated' => 0,
+                'filters_applied' => !empty($activeFilters) ? count($activeFilters) : 0,
                 'errors' => [],
             ];
 
-            foreach ($trackedProjects as $project) {
-                try {
-                    $flats = $pik->getFlats(['block_ids' => [$project['pik_id']]]);
+            try {
+                $flats = $pik->getFlats($apiParams);
 
-                    foreach ($flats as $flat) {
-                        $flat['project_id'] = $project['id'];
+                foreach ($flats as $flat) {
+                    $blockId = $flat['block_id'] ?? null;
+
+                    // Find which project this flat belongs to
+                    if ($blockId && isset($projectMap[$blockId])) {
+                        $flat['project_id'] = $projectMap[$blockId]['id'];
                         $result = $db->saveApartment($flat);
 
                         $results['fetched']++;
@@ -155,9 +202,9 @@ try {
                             $results['updated']++;
                         }
                     }
-                } catch (Exception $e) {
-                    $results['errors'][] = "Project {$project['name']}: " . $e->getMessage();
                 }
+            } catch (Exception $e) {
+                $results['errors'][] = $e->getMessage();
             }
 
             respond($results);
