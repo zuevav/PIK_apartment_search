@@ -1,11 +1,12 @@
 <?php
-/**
+/*
  * PIK Apartment Tracker - Cron Job
  *
  * Run this script periodically to check for new apartments and price changes.
  *
  * Example crontab entry (every 6 hours):
- * 0 */6 * * * php /path/to/pik-tracker/cron.php >> /path/to/logs/pik-tracker.log 2>&1
+ * 0 [star]/6 [star] [star] [star] [star] php /path/to/cron.php
+ * (replace [star] with *)
  */
 
 // Prevent running from web

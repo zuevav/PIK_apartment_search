@@ -101,8 +101,9 @@ async function loadProjects() {
     }
 }
 
-function renderProjectsList() {
+function renderProjectsList(filteredProjects = null) {
     const container = document.getElementById('projects-list');
+    const displayProjects = filteredProjects !== null ? filteredProjects : projects;
 
     if (projects.length === 0) {
         container.innerHTML = `
@@ -117,7 +118,18 @@ function renderProjectsList() {
         return;
     }
 
-    container.innerHTML = projects.map(p => `
+    if (displayProjects.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <p>Проекты не найдены</p>
+                <p style="font-size:0.85rem;color:#888;">Попробуйте изменить запрос</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = displayProjects.map(p => `
         <div class="project-item">
             <input type="checkbox"
                    id="project-${p.id}"
@@ -126,6 +138,22 @@ function renderProjectsList() {
             <label for="project-${p.id}" class="project-name">${p.name}</label>
         </div>
     `).join('');
+}
+
+function filterProjects() {
+    const searchInput = document.getElementById('projects-search');
+    const query = searchInput.value.toLowerCase().trim();
+
+    if (!query) {
+        renderProjectsList();
+        return;
+    }
+
+    const filtered = projects.filter(p =>
+        p.name.toLowerCase().includes(query)
+    );
+
+    renderProjectsList(filtered);
 }
 
 function updateProjectsDropdown() {
