@@ -139,13 +139,16 @@ class Database
     // Projects
     public function saveProject(array $data): int
     {
+        $isTracked = $data['is_tracked'] ?? 0;
+
         $stmt = $this->pdo->prepare("
-            INSERT INTO projects (pik_id, name, slug, url, updated_at)
-            VALUES (:pik_id, :name, :slug, :url, CURRENT_TIMESTAMP)
+            INSERT INTO projects (pik_id, name, slug, url, is_tracked, updated_at)
+            VALUES (:pik_id, :name, :slug, :url, :is_tracked, CURRENT_TIMESTAMP)
             ON CONFLICT(pik_id) DO UPDATE SET
                 name = excluded.name,
                 slug = excluded.slug,
                 url = excluded.url,
+                is_tracked = CASE WHEN :is_tracked_update = 1 THEN 1 ELSE projects.is_tracked END,
                 updated_at = CURRENT_TIMESTAMP
         ");
         $stmt->execute([
@@ -153,6 +156,8 @@ class Database
             'name' => $data['name'],
             'slug' => $data['slug'] ?? null,
             'url' => $data['url'] ?? null,
+            'is_tracked' => $isTracked ? 1 : 0,
+            'is_tracked_update' => $isTracked ? 1 : 0,
         ]);
 
         return $this->pdo->lastInsertId() ?: $this->getProjectByPikId($data['id'])['id'];

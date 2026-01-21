@@ -16,7 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initProjectsSearch();
     loadStats();
     loadProjects();
-    loadApartments();
+    // Only auto-load apartments if filter-project dropdown exists (non-wizard mode)
+    if (document.getElementById('filter-project')) {
+        loadApartments();
+    }
     loadFilters();
     loadSettings();
 });
@@ -201,6 +204,8 @@ function clearProjectsSearch() {
 
 function updateProjectsDropdown() {
     const select = document.getElementById('filter-project');
+    if (!select) return; // Wizard mode doesn't have this dropdown
+
     const trackedProjects = projects.filter(p => p.is_tracked);
 
     select.innerHTML = '<option value="">Все проекты</option>' +
@@ -288,16 +293,29 @@ function getFilters() {
 }
 
 function resetFilters() {
-    document.getElementById('filter-project').value = '';
-    document.getElementById('filter-rooms-min').value = '';
-    document.getElementById('filter-rooms-max').value = '';
-    document.getElementById('filter-price-min').value = '';
-    document.getElementById('filter-price-max').value = '';
-    document.getElementById('filter-area-min').value = '';
-    document.getElementById('filter-area-max').value = '';
-    document.getElementById('filter-floor-min').value = '';
-    document.getElementById('filter-floor-max').value = '';
-    document.getElementById('filter-order').value = 'price ASC';
+    const filterProject = document.getElementById('filter-project');
+    if (filterProject) filterProject.value = '';
+
+    const roomsMin = document.getElementById('filter-rooms-min');
+    const roomsMax = document.getElementById('filter-rooms-max');
+    const priceMin = document.getElementById('filter-price-min');
+    const priceMax = document.getElementById('filter-price-max');
+    const areaMin = document.getElementById('filter-area-min');
+    const areaMax = document.getElementById('filter-area-max');
+    const floorMin = document.getElementById('filter-floor-min');
+    const floorMax = document.getElementById('filter-floor-max');
+    const filterOrder = document.getElementById('filter-order');
+
+    if (roomsMin) roomsMin.value = '';
+    if (roomsMax) roomsMax.value = '';
+    if (priceMin) priceMin.value = '';
+    if (priceMax) priceMax.value = '';
+    if (areaMin) areaMin.value = '';
+    if (areaMax) areaMax.value = '';
+    if (floorMin) floorMin.value = '';
+    if (floorMax) floorMax.value = '';
+    if (filterOrder) filterOrder.value = 'price ASC';
+
     currentPage = 0;
     loadApartments();
 }
@@ -594,20 +612,55 @@ async function applyFilter(filterId) {
         const data = await api('get_filter', { id: filterId });
         const f = data.filter;
 
-        if (f.project_ids && f.project_ids.length > 0) {
-            document.getElementById('filter-project').value = f.project_ids[0];
+        // Set project filter (dropdown mode)
+        const filterProject = document.getElementById('filter-project');
+        if (filterProject && f.project_ids && f.project_ids.length > 0) {
+            filterProject.value = f.project_ids[0];
         }
-        document.getElementById('filter-rooms-min').value = f.rooms_min || '';
-        document.getElementById('filter-rooms-max').value = f.rooms_max || '';
-        document.getElementById('filter-price-min').value = f.price_min || '';
-        document.getElementById('filter-price-max').value = f.price_max || '';
-        document.getElementById('filter-area-min').value = f.area_min || '';
-        document.getElementById('filter-area-max').value = f.area_max || '';
-        document.getElementById('filter-floor-min').value = f.floor_min || '';
-        document.getElementById('filter-floor-max').value = f.floor_max || '';
 
-        // Switch to apartments tab
-        document.querySelector('[data-tab="apartments"]').click();
+        // For wizard mode, set tracked projects
+        if (f.project_ids && f.project_ids.length > 0) {
+            // First deselect all, then select filter projects
+            projects.forEach(p => {
+                if (p.is_tracked && !f.project_ids.includes(p.id)) {
+                    toggleProject(p.id, false);
+                }
+            });
+            f.project_ids.forEach(pid => {
+                const proj = projects.find(p => p.id === pid);
+                if (proj && !proj.is_tracked) {
+                    toggleProject(pid, true);
+                }
+            });
+        }
+
+        // Set filter values
+        const roomsMin = document.getElementById('filter-rooms-min');
+        const roomsMax = document.getElementById('filter-rooms-max');
+        const priceMin = document.getElementById('filter-price-min');
+        const priceMax = document.getElementById('filter-price-max');
+        const areaMin = document.getElementById('filter-area-min');
+        const areaMax = document.getElementById('filter-area-max');
+        const floorMin = document.getElementById('filter-floor-min');
+        const floorMax = document.getElementById('filter-floor-max');
+
+        if (roomsMin) roomsMin.value = f.rooms_min || '';
+        if (roomsMax) roomsMax.value = f.rooms_max || '';
+        if (priceMin) priceMin.value = f.price_min || '';
+        if (priceMax) priceMax.value = f.price_max || '';
+        if (areaMin) areaMin.value = f.area_min || '';
+        if (areaMax) areaMax.value = f.area_max || '';
+        if (floorMin) floorMin.value = f.floor_min || '';
+        if (floorMax) floorMax.value = f.floor_max || '';
+
+        // Switch to apartments tab (if exists) or go to step 3 in wizard
+        const apartmentsTab = document.querySelector('[data-tab="apartments"]');
+        if (apartmentsTab) {
+            apartmentsTab.click();
+        } else if (typeof goToStep === 'function') {
+            goToStep(3);
+        }
+
         currentPage = 0;
         loadApartments();
     } catch (e) {
@@ -633,9 +686,13 @@ async function loadSettings() {
         const data = await api('get_settings');
         const s = data.settings;
 
-        document.getElementById('setting-email-enabled').checked = s.email_enabled === '1';
-        document.getElementById('setting-email').value = s.email_to || '';
-        document.getElementById('setting-interval').value = s.check_interval || '6';
+        const emailEnabled = document.getElementById('setting-email-enabled');
+        const emailTo = document.getElementById('setting-email');
+        const interval = document.getElementById('setting-interval');
+
+        if (emailEnabled) emailEnabled.checked = s.email_enabled === '1';
+        if (emailTo) emailTo.value = s.email_to || '';
+        if (interval) interval.value = s.check_interval || '6';
     } catch (e) {
         console.error('Failed to load settings:', e);
     }
