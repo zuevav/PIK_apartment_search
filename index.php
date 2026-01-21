@@ -602,14 +602,14 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             // Projects search on input
             const searchInput = document.getElementById('projects-search');
             if (searchInput) {
-                searchInput.addEventListener('input', filterProjects);
+                searchInput.addEventListener('input', window.filterProjects);
             }
 
             // Sort change triggers reload
             const sortSelect = document.getElementById('filter-order');
             if (sortSelect) {
                 sortSelect.addEventListener('change', () => {
-                    if (currentStep === 3) loadApartments();
+                    if (currentStep === 3) window.loadApartments();
                 });
             }
         });
