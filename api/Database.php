@@ -271,55 +271,69 @@ class Database
         $where = ["status = 'active'"];
         $params = [];
 
-        if (!empty($filters['project_id'])) {
-            $where[] = "project_id = :project_id";
+        // Support both single project_id and array project_ids
+        if (!empty($filters['project_ids']) && is_array($filters['project_ids'])) {
+            $placeholders = [];
+            foreach ($filters['project_ids'] as $i => $pid) {
+                $key = "project_id_{$i}";
+                $placeholders[] = ":{$key}";
+                $params[$key] = $pid;
+            }
+            $where[] = "a.project_id IN (" . implode(',', $placeholders) . ")";
+        } elseif (!empty($filters['project_id'])) {
+            $where[] = "a.project_id = :project_id";
             $params['project_id'] = $filters['project_id'];
         }
         if (!empty($filters['rooms_min'])) {
-            $where[] = "rooms >= :rooms_min";
+            $where[] = "a.rooms >= :rooms_min";
             $params['rooms_min'] = $filters['rooms_min'];
         }
         if (!empty($filters['rooms_max'])) {
-            $where[] = "rooms <= :rooms_max";
+            $where[] = "a.rooms <= :rooms_max";
             $params['rooms_max'] = $filters['rooms_max'];
         }
         if (!empty($filters['price_min'])) {
-            $where[] = "price >= :price_min";
+            $where[] = "a.price >= :price_min";
             $params['price_min'] = $filters['price_min'];
         }
         if (!empty($filters['price_max'])) {
-            $where[] = "price <= :price_max";
+            $where[] = "a.price <= :price_max";
             $params['price_max'] = $filters['price_max'];
         }
         if (!empty($filters['area_min'])) {
-            $where[] = "area >= :area_min";
+            $where[] = "a.area >= :area_min";
             $params['area_min'] = $filters['area_min'];
         }
         if (!empty($filters['area_max'])) {
-            $where[] = "area <= :area_max";
+            $where[] = "a.area <= :area_max";
             $params['area_max'] = $filters['area_max'];
         }
         if (!empty($filters['floor_min'])) {
-            $where[] = "floor >= :floor_min";
+            $where[] = "a.floor >= :floor_min";
             $params['floor_min'] = $filters['floor_min'];
         }
         if (!empty($filters['floor_max'])) {
-            $where[] = "floor <= :floor_max";
+            $where[] = "a.floor <= :floor_max";
             $params['floor_max'] = $filters['floor_max'];
         }
 
         $whereClause = implode(' AND ', $where);
         $orderBy = $filters['order_by'] ?? 'price ASC';
 
-        $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM apartments WHERE $whereClause");
-        $countStmt->execute($params);
+        // Build count query with same where clause
+        $countSql = "SELECT COUNT(*) FROM apartments a WHERE $whereClause";
+        $countStmt = $this->pdo->prepare($countSql);
+        foreach ($params as $key => $value) {
+            $countStmt->bindValue(":$key", $value);
+        }
+        $countStmt->execute();
         $total = $countStmt->fetchColumn();
 
         $sql = "SELECT a.*, p.name as project_name
                 FROM apartments a
                 LEFT JOIN projects p ON a.project_id = p.id
                 WHERE $whereClause
-                ORDER BY $orderBy
+                ORDER BY a.$orderBy
                 LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
