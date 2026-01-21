@@ -25,9 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function initProjectsSearch() {
     const searchInput = document.getElementById('projects-search');
     if (searchInput) {
+        console.log('Projects search initialized');
         searchInput.addEventListener('input', function() {
             filterProjects();
         });
+        // Also trigger on keyup as fallback
+        searchInput.addEventListener('keyup', function() {
+            filterProjects();
+        });
+    } else {
+        console.error('projects-search input not found');
     }
 }
 
@@ -164,17 +171,25 @@ function renderProjectsList(filteredProjects = null) {
 
 function filterProjects() {
     const searchInput = document.getElementById('projects-search');
+    if (!searchInput) {
+        console.error('Search input not found');
+        return;
+    }
+
     const query = searchInput.value.toLowerCase().trim();
+    console.log('Filtering projects, query:', query, 'total projects:', projects.length);
 
     if (!query) {
         renderProjectsList();
         return;
     }
 
-    const filtered = projects.filter(p =>
-        p.name.toLowerCase().includes(query)
-    );
+    const filtered = projects.filter(p => {
+        if (!p || !p.name) return false;
+        return p.name.toLowerCase().includes(query);
+    });
 
+    console.log('Filtered results:', filtered.length);
     renderProjectsList(filtered);
 }
 
