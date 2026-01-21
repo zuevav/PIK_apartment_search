@@ -1,0 +1,26 @@
+# PIK Apartment Tracker
+
+# Database
+data/*.db
+data/*.sqlite
+
+# Logs
+*.log
+logs/
+
+# Config with secrets (use config.php.example as template)
+# config.local.php
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Composer (if used later)
+vendor/
+composer.lock

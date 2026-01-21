@@ -1,0 +1,34 @@
+# PIK Apartment Tracker - Apache Configuration
+
+# Protect data directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block access to data directory
+    RewriteRule ^data/ - [F,L]
+
+    # Block access to config file
+    RewriteRule ^config\.php$ - [F,L]
+
+    # Block access to cron script from web
+    RewriteRule ^cron\.php$ - [F,L]
+</IfModule>
+
+# Fallback protection for data directory
+<FilesMatch "\.db$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# PHP settings (if applicable)
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>
