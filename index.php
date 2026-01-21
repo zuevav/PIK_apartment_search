@@ -292,8 +292,8 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 <div class="card-header">
                     <span>Результаты поиска: <strong id="apartments-count">0</strong> квартир</span>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button class="btn btn-primary btn-sm" onclick="fetchFromPik()" id="btn-fetch-pik">
-                            Загрузить с PIK
+                        <button class="btn btn-outline btn-sm" onclick="fetchFromPik()" id="btn-fetch-pik">
+                            Обновить с PIK
                         </button>
                         <select id="filter-order" style="margin-right: 0.5rem;">
                             <option value="price ASC">Цена ↑</option>
@@ -485,31 +485,47 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             document.querySelectorAll('.wizard-content').forEach(el => el.classList.remove('active'));
             document.getElementById(`step-${step}`).classList.add('active');
 
-            // If going to step 3, trigger search
+            // If going to step 3 via navigation (not search), just load from local DB
             if (step === 3) {
-                loadApartments();
+                window.loadApartments();
             }
         }
 
-        function searchApartments() {
-            goToStep(3);
+        async function searchApartments() {
+            // Show step 3 first
+            currentStep = 3;
+            document.querySelectorAll('.wizard-step').forEach(el => {
+                const s = parseInt(el.dataset.step);
+                el.classList.remove('active', 'completed');
+                if (s === 3) el.classList.add('active');
+                else if (s < 3) el.classList.add('completed');
+            });
+            document.querySelectorAll('.wizard-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('step-3').classList.add('active');
+
+            // Fetch from PIK
+            await fetchFromPik();
         }
 
         async function fetchFromPik() {
             const btn = document.getElementById('btn-fetch-pik');
-            const originalText = btn.textContent;
-            btn.textContent = 'Загрузка...';
-            btn.disabled = true;
+            if (btn) {
+                btn.textContent = 'Загрузка...';
+                btn.disabled = true;
+            }
 
             try {
+                window.showAlert('Загрузка данных с PIK...', 'info');
                 const data = await window.api('fetch_apartments');
                 window.showAlert(`Загружено: ${data.fetched}, новых: ${data.new}, обновлено: ${data.updated}`, 'success');
                 window.loadApartments();
             } catch (e) {
                 window.showAlert('Ошибка загрузки: ' + e.message, 'danger');
             } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
+                if (btn) {
+                    btn.textContent = 'Обновить с PIK';
+                    btn.disabled = false;
+                }
             }
         }
 
