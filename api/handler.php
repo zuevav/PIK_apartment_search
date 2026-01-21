@@ -17,12 +17,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/PikApi.php';
+require_once __DIR__ . '/Auth.php';
 
 $config = require __DIR__ . '/../config.php';
 
 try {
     $db = new Database($config['db_path']);
     $pik = new PikApi($config);
+    $auth = new Auth($db->getPdo(), $config);
+
+    // Check authentication
+    $auth->requireAuth();
 
     $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
@@ -238,6 +243,22 @@ try {
             }
 
             respond(['success' => true]);
+            break;
+
+        // Change password
+        case 'change_password':
+            $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $user = $auth->getUser();
+
+            if (!$user) {
+                respond(['error' => 'Not authenticated'], 401);
+            }
+
+            $currentPassword = $data['current_password'] ?? '';
+            $newPassword = $data['new_password'] ?? '';
+
+            $result = $auth->changePassword($user['id'], $currentPassword, $newPassword);
+            respond($result, $result['success'] ? 200 : 400);
             break;
 
         default:

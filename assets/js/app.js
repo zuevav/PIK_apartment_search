@@ -58,6 +58,11 @@ async function api(action, params = {}, method = 'GET') {
         const data = await response.json();
 
         if (!response.ok) {
+            // Handle auth errors - redirect to login
+            if (response.status === 401 || data.auth_required) {
+                window.location.href = 'login.php';
+                return;
+            }
             throw new Error(data.error || 'API Error');
         }
 
@@ -581,6 +586,46 @@ async function testApi() {
         }
     } catch (e) {
         statusDiv.innerHTML = '<div class="alert alert-danger">Ошибка: ' + e.message + '</div>';
+    }
+}
+
+// Change password
+async function changePassword() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const newPassword2 = document.getElementById('new-password2').value;
+
+    if (!currentPassword || !newPassword || !newPassword2) {
+        showAlert('Заполните все поля', 'warning');
+        return;
+    }
+
+    if (newPassword !== newPassword2) {
+        showAlert('Новые пароли не совпадают', 'danger');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        showAlert('Новый пароль должен быть минимум 6 символов', 'warning');
+        return;
+    }
+
+    try {
+        const result = await api('change_password', {
+            current_password: currentPassword,
+            new_password: newPassword
+        }, 'POST');
+
+        if (result.success) {
+            showAlert('Пароль успешно изменен', 'success');
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('new-password2').value = '';
+        } else {
+            showAlert(result.error || 'Ошибка смены пароля', 'danger');
+        }
+    } catch (e) {
+        showAlert('Ошибка: ' + e.message, 'danger');
     }
 }
 
