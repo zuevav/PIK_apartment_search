@@ -56,7 +56,10 @@ function initTabs() {
 // API calls
 async function api(action, params = {}, method = 'GET') {
     try {
-        let url = `${API_URL}?action=${action}`;
+        // Build absolute URL
+        const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+        let url = `${baseUrl}${API_URL}?action=${action}`;
+
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' }
@@ -72,8 +75,19 @@ async function api(action, params = {}, method = 'GET') {
             options.body = JSON.stringify(params);
         }
 
+        console.log('API Request:', method, url);
         const response = await fetch(url, options);
-        const data = await response.json();
+
+        const text = await response.text();
+        console.log('API Response:', response.status, text.substring(0, 200));
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('JSON Parse Error:', e, 'Response:', text);
+            throw new Error('Invalid JSON response from server');
+        }
 
         if (!response.ok) {
             // Handle auth errors - redirect to login
@@ -110,6 +124,7 @@ async function loadProjects() {
     try {
         const data = await api('get_projects');
         projects = data.projects || [];
+        console.log('Loaded projects:', projects.length, 'first:', projects[0]);
 
         renderProjectsList();
         updateProjectsDropdown();
