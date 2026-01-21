@@ -28,7 +28,7 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($siteName) ?></title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
     <style>
         /* Wizard styles */
         .wizard-progress {
@@ -451,7 +451,7 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         </div>
     </div>
 
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.js?v=<?= time() ?>"></script>
     <script>
         // Wizard navigation
         let currentStep = 1;
