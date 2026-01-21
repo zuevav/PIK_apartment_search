@@ -1,22 +1,51 @@
+<?php
+/**
+ * PIK Apartment Tracker - Main Page
+ */
+
+// Check if installed
+if (!file_exists(__DIR__ . '/data/.installed')) {
+    header('Location: install.php');
+    exit;
+}
+
+require_once __DIR__ . '/api/Database.php';
+require_once __DIR__ . '/api/Auth.php';
+
+$config = require __DIR__ . '/config.php';
+$db = new Database($config['db_path']);
+$auth = new Auth($db->getPdo(), $config);
+
+// Check authentication
+$auth->requireAuth();
+
+$user = $auth->getUser();
+$siteName = $config['site_name'] ?? 'PIK Tracker';
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIK Apartment Tracker</title>
+    <title><?= htmlspecialchars($siteName) ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <header class="header">
         <div class="header-content">
             <div class="logo">
-                PIK Tracker <span>| Отслеживание квартир</span>
+                <?= htmlspecialchars($siteName) ?> <span>| Отслеживание квартир</span>
             </div>
             <nav class="nav">
                 <button class="nav-btn active" data-tab="apartments">Квартиры</button>
                 <button class="nav-btn" data-tab="projects">Проекты</button>
                 <button class="nav-btn" data-tab="filters">Фильтры</button>
                 <button class="nav-btn" data-tab="settings">Настройки</button>
+                <div class="nav-separator"></div>
+                <div class="user-menu">
+                    <span class="user-name"><?= htmlspecialchars($user['username']) ?></span>
+                    <a href="logout.php" class="nav-btn logout-btn">Выйти</a>
+                </div>
             </nav>
         </div>
     </header>
@@ -228,6 +257,27 @@
             </div>
 
             <div class="card mt-2">
+                <div class="card-header">Смена пароля</div>
+                <div class="card-body">
+                    <div class="filter-group">
+                        <label>Текущий пароль</label>
+                        <input type="password" id="current-password">
+                    </div>
+                    <div class="filter-group">
+                        <label>Новый пароль</label>
+                        <input type="password" id="new-password">
+                    </div>
+                    <div class="filter-group">
+                        <label>Повторите новый пароль</label>
+                        <input type="password" id="new-password2">
+                    </div>
+                    <button class="btn btn-secondary" onclick="changePassword()">
+                        Сменить пароль
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mt-2">
                 <div class="card-header">API Status</div>
                 <div class="card-body">
                     <button class="btn btn-outline" onclick="testApi()">
@@ -242,11 +292,8 @@
                 <div class="card-body">
                     <p>Для автоматической проверки добавьте в crontab:</p>
                     <code style="display:block;background:#f5f5f5;padding:1rem;border-radius:4px;margin-top:0.5rem;word-break:break-all;">
-                        0 */6 * * * php /path/to/your/site/cron.php >> /path/to/logs/pik-tracker.log 2>&1
+                        0 */6 * * * php <?= __DIR__ ?>/cron.php >> /var/log/pik-tracker.log 2>&1
                     </code>
-                    <p class="mt-1" style="font-size:0.85rem;color:#666;">
-                        Замените /path/to/your/site на путь к установке трекера.
-                    </p>
                 </div>
             </div>
         </div>
