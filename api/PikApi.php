@@ -19,7 +19,7 @@ class PikApi
         $this->version = $config['pik_api_version'] ?? 'v2';
         $this->siteUrl = $config['pik_site_url'] ?? 'https://www.pik.ru';
         $this->timeout = $config['request_timeout'] ?? 30;
-        $this->delay = $config['request_delay'] ?? 2;
+        $this->delay = $config['request_delay'] ?? 0; // No delay for faster response
     }
 
     /**
@@ -182,73 +182,76 @@ class PikApi
         }
 
         $allFlats = [];
+        $offset = 0;
+        $limit = 100; // Increase limit for efficiency
 
-        // Fetch flats for each block separately with pagination
-        foreach ($blockIds as $blockId) {
-            $offset = 0;
-            $limit = 50; // API returns max 50 per request
+        // Build base search params - query all blocks at once
+        $baseParams = [
+            'type' => 1,
+            'block' => implode(',', $blockIds), // All blocks in one request
+            'onlyFlats' => 1,
+        ];
 
-            while (true) {
-                $searchParams = [
-                    'type' => 1,
-                    'block' => $blockId,
-                    'flatLimit' => $limit,
-                    'flatOffset' => $offset,
-                    'onlyFlats' => 1,
-                ];
+        // Add room filter
+        if (!empty($params['rooms'])) {
+            $baseParams['rooms'] = implode(',', (array) $params['rooms']);
+        }
 
-                // Add room filter
-                if (!empty($params['rooms'])) {
-                    $searchParams['rooms'] = implode(',', (array) $params['rooms']);
-                }
+        // Add price filter
+        if (!empty($params['price_min'])) {
+            $baseParams['priceMin'] = $params['price_min'];
+        }
+        if (!empty($params['price_max'])) {
+            $baseParams['priceMax'] = $params['price_max'];
+        }
 
-                // Add price filter
-                if (!empty($params['price_min'])) {
-                    $searchParams['priceMin'] = $params['price_min'];
-                }
-                if (!empty($params['price_max'])) {
-                    $searchParams['priceMax'] = $params['price_max'];
-                }
+        // Add area filter
+        if (!empty($params['area_min'])) {
+            $baseParams['areaMin'] = $params['area_min'];
+        }
+        if (!empty($params['area_max'])) {
+            $baseParams['areaMax'] = $params['area_max'];
+        }
 
-                // Add area filter
-                if (!empty($params['area_min'])) {
-                    $searchParams['areaMin'] = $params['area_min'];
-                }
-                if (!empty($params['area_max'])) {
-                    $searchParams['areaMax'] = $params['area_max'];
-                }
+        // Fetch with pagination
+        while (true) {
+            $searchParams = array_merge($baseParams, [
+                'flatLimit' => $limit,
+                'flatOffset' => $offset,
+            ]);
 
-                $data = $this->request('filter', $searchParams);
+            $data = $this->request('filter', $searchParams);
 
-                if (!$data || !isset($data['blocks'][0]['flats'])) {
-                    break;
-                }
+            if (!$data || empty($data['blocks'])) {
+                break;
+            }
 
-                $blockData = $data['blocks'][0];
+            $foundFlats = 0;
+            foreach ($data['blocks'] as $blockData) {
                 $flats = $blockData['flats'] ?? [];
-
                 if (empty($flats)) {
-                    break;
+                    continue;
                 }
 
                 $blockFlats = $this->parseFlatsResponse(['flats' => $flats]);
                 foreach ($blockFlats as &$flat) {
-                    $flat['block_id'] = $blockId;
+                    $flat['block_id'] = $blockData['id'] ?? null;
                     $flat['block_name'] = $blockData['name'] ?? null;
                 }
                 $allFlats = array_merge($allFlats, $blockFlats);
+                $foundFlats += count($flats);
+            }
 
-                // If we got less than limit, we've reached the end
-                if (count($flats) < $limit) {
-                    break;
-                }
+            // If we got less than limit total, we've reached the end
+            if ($foundFlats < $limit) {
+                break;
+            }
 
-                $offset += $limit;
+            $offset += $limit;
 
-                // Safety limit to prevent infinite loops
-                if ($offset > 5000) {
-                    break;
-                }
+            // Safety limit
+            if ($offset > 2000) {
+                break;
             }
         }
 
