@@ -135,7 +135,7 @@ try {
             break;
 
         case 'fetch_apartments':
-            // Fetch apartments from PIK API using active filters
+            // Fetch apartments from PIK API using filters from request
             $trackedProjects = $db->getProjects(true);
 
             if (empty($trackedProjects)) {
@@ -150,46 +150,39 @@ try {
                 $trackedPikIds[] = $project['pik_id'];
             }
 
-            // Get active filters and combine their criteria
-            $activeFilters = $db->getFilters(true);
             $apiParams = [
                 'block_ids' => $trackedPikIds,
                 'limit' => 1000,
             ];
 
-            // Apply filter criteria if any active filters exist
-            if (!empty($activeFilters)) {
-                // Combine criteria from all active filters (use min/max ranges)
-                $priceMin = null;
-                $priceMax = null;
-                $areaMin = null;
-                $areaMax = null;
-                $roomsSet = [];
+            // Apply filters from request (UI form)
+            $rooms = $_GET['rooms'] ?? '';
+            $priceMin = $_GET['price_min'] ?? '';
+            $priceMax = $_GET['price_max'] ?? '';
+            $areaMin = $_GET['area_min'] ?? '';
+            $areaMax = $_GET['area_max'] ?? '';
 
-                foreach ($activeFilters as $filter) {
-                    if ($filter['price_min']) $priceMin = $priceMin ? min($priceMin, $filter['price_min']) : $filter['price_min'];
-                    if ($filter['price_max']) $priceMax = $priceMax ? max($priceMax, $filter['price_max']) : $filter['price_max'];
-                    if ($filter['area_min']) $areaMin = $areaMin ? min($areaMin, $filter['area_min']) : $filter['area_min'];
-                    if ($filter['area_max']) $areaMax = $areaMax ? max($areaMax, $filter['area_max']) : $filter['area_max'];
-                    if ($filter['rooms_min']) {
-                        for ($r = $filter['rooms_min']; $r <= ($filter['rooms_max'] ?? 5); $r++) {
-                            $roomsSet[$r] = true;
-                        }
-                    }
+            // Parse rooms (can be "0,1,2" format)
+            if (!empty($rooms)) {
+                $roomsArray = array_map('intval', explode(',', $rooms));
+                // Handle "3+" case - if 3 is selected, include 3,4,5,6
+                if (in_array(3, $roomsArray)) {
+                    $roomsArray = array_merge($roomsArray, [4, 5, 6]);
+                    $roomsArray = array_unique($roomsArray);
                 }
-
-                if ($priceMin) $apiParams['price_min'] = $priceMin;
-                if ($priceMax) $apiParams['price_max'] = $priceMax;
-                if ($areaMin) $apiParams['area_min'] = $areaMin;
-                if ($areaMax) $apiParams['area_max'] = $areaMax;
-                if (!empty($roomsSet)) $apiParams['rooms'] = array_keys($roomsSet);
+                $apiParams['rooms'] = $roomsArray;
             }
+
+            if (!empty($priceMin)) $apiParams['price_min'] = (int)$priceMin;
+            if (!empty($priceMax)) $apiParams['price_max'] = (int)$priceMax;
+            if (!empty($areaMin)) $apiParams['area_min'] = (float)$areaMin;
+            if (!empty($areaMax)) $apiParams['area_max'] = (float)$areaMax;
 
             $results = [
                 'fetched' => 0,
                 'new' => 0,
                 'updated' => 0,
-                'filters_applied' => !empty($activeFilters) ? count($activeFilters) : 0,
+                'filters' => $apiParams,
                 'errors' => [],
             ];
 

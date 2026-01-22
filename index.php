@@ -588,7 +588,17 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             updateLoadingProgress('Подключение к API...');
 
             try {
-                const data = await window.api('fetch_apartments');
+                // Get current filters and pass them to the API
+                const filters = window.getFilters();
+                const params = {
+                    rooms: filters.rooms || '',
+                    price_min: filters.price_min || '',
+                    price_max: filters.price_max || '',
+                    area_min: filters.area_min || '',
+                    area_max: filters.area_max || ''
+                };
+
+                const data = await window.api('fetch_apartments', params);
                 updateLoadingProgress(`Загружено: ${data.fetched}, новых: ${data.new}`);
 
                 // Small delay to show the result
