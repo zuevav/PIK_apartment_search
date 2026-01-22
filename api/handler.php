@@ -183,12 +183,27 @@ try {
                 'fetched' => 0,
                 'new' => 0,
                 'updated' => 0,
-                'filters' => $apiParams,
+                'debug' => [
+                    'tracked_pik_ids' => $trackedPikIds,
+                    'api_params' => $apiParams,
+                ],
                 'errors' => [],
             ];
 
             try {
                 $flats = $pik->getFlats($apiParams);
+                $results['debug']['api_returned'] = count($flats);
+
+                // Count by block for debugging
+                $byBlock = [];
+                foreach ($flats as $flat) {
+                    $blockId = $flat['block_id'] ?? 'unknown';
+                    $blockName = $flat['block_name'] ?? 'Unknown';
+                    if (!isset($byBlock[$blockId])) {
+                        $byBlock[$blockId] = ['name' => $blockName, 'count' => 0, 'saved' => 0];
+                    }
+                    $byBlock[$blockId]['count']++;
+                }
 
                 foreach ($flats as $flat) {
                     $blockId = $flat['block_id'] ?? null;
@@ -197,6 +212,7 @@ try {
                     if ($blockId && isset($projectMap[$blockId])) {
                         $flat['project_id'] = $projectMap[$blockId]['id'];
                         $result = $db->saveApartment($flat);
+                        $byBlock[$blockId]['saved']++;
 
                         $results['fetched']++;
                         if ($result['is_new']) {
@@ -206,6 +222,8 @@ try {
                         }
                     }
                 }
+
+                $results['debug']['by_block'] = $byBlock;
             } catch (Exception $e) {
                 $results['errors'][] = $e->getMessage();
             }

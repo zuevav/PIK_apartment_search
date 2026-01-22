@@ -717,12 +717,19 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 };
 
                 const data = await window.api('fetch_apartments', params);
+                console.log('Fetch result:', data);
                 updateLoadingProgress(`Загружено: ${data.fetched}, новых: ${data.new}`);
 
                 // Small delay to show the result
                 await new Promise(r => setTimeout(r, 500));
 
-                window.showAlert(`Загружено: ${data.fetched}, новых: ${data.new}, обновлено: ${data.updated}`, 'success');
+                // Show debug info if available
+                let msg = `Загружено: ${data.fetched}, новых: ${data.new}, обновлено: ${data.updated}`;
+                if (data.debug) {
+                    msg += ` (API вернул: ${data.debug.api_returned || '?'})`;
+                    console.log('Debug info:', data.debug);
+                }
+                window.showAlert(msg, 'success');
                 window.loadApartments();
             } catch (e) {
                 window.showAlert('Ошибка загрузки: ' + e.message, 'danger');
