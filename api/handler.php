@@ -420,22 +420,44 @@ try {
         // Git update
         case 'git_update':
             $rootDir = dirname(__DIR__);
+            $repoUrl = 'https://github.com/zuevav/PIK_apartment_search.git';
 
-            // Check if git is available and this is a git repo
-            if (!is_dir($rootDir . '/.git')) {
-                respond(['error' => 'Не Git репозиторий'], 400);
+            // Check if git is available
+            $checkOutput = [];
+            $checkCode = 0;
+            exec("which git 2>&1", $checkOutput, $checkCode);
+            if ($checkCode !== 0) {
+                respond(['error' => 'Git не установлен на сервере'], 400);
             }
 
-            // Run git pull
+            // Check if this is a git repo
+            $checkOutput = [];
+            exec("cd " . escapeshellarg($rootDir) . " && git rev-parse --is-inside-work-tree 2>&1", $checkOutput, $checkCode);
+
             $output = [];
             $returnCode = 0;
 
-            // First fetch
+            if ($checkCode !== 0 || (isset($checkOutput[0]) && $checkOutput[0] !== 'true')) {
+                // Not a git repo - initialize and set remote
+                exec("cd " . escapeshellarg($rootDir) . " && git init 2>&1", $output, $returnCode);
+                exec("cd " . escapeshellarg($rootDir) . " && git remote add origin " . escapeshellarg($repoUrl) . " 2>&1", $output, $returnCode);
+            } else {
+                // Ensure origin points to correct URL
+                exec("cd " . escapeshellarg($rootDir) . " && git remote set-url origin " . escapeshellarg($repoUrl) . " 2>&1", $output, $returnCode);
+            }
+
+            // Fetch from origin
             exec("cd " . escapeshellarg($rootDir) . " && git fetch origin 2>&1", $output, $returnCode);
 
-            // Then pull
+            // Reset to origin/main (or master)
             $pullOutput = [];
-            exec("cd " . escapeshellarg($rootDir) . " && git pull origin HEAD 2>&1", $pullOutput, $returnCode);
+            exec("cd " . escapeshellarg($rootDir) . " && git reset --hard origin/main 2>&1", $pullOutput, $returnCode);
+
+            // If main doesn't exist, try master
+            if ($returnCode !== 0) {
+                $pullOutput = [];
+                exec("cd " . escapeshellarg($rootDir) . " && git reset --hard origin/master 2>&1", $pullOutput, $returnCode);
+            }
             $output = array_merge($output, $pullOutput);
 
             $outputStr = implode("\n", $output);
