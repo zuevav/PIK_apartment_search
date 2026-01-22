@@ -421,9 +421,18 @@ try {
         case 'git_update':
             $rootDir = dirname(__DIR__);
 
-            // Check if git is available and this is a git repo
-            if (!is_dir($rootDir . '/.git')) {
-                respond(['error' => 'Не Git репозиторий'], 400);
+            // Check if git is available using git rev-parse (works even if .git is a file)
+            $checkOutput = [];
+            $checkCode = 0;
+            exec("cd " . escapeshellarg($rootDir) . " && git rev-parse --is-inside-work-tree 2>&1", $checkOutput, $checkCode);
+
+            if ($checkCode !== 0 || (isset($checkOutput[0]) && $checkOutput[0] !== 'true')) {
+                // Not a git repo or git not available
+                respond([
+                    'error' => 'Не Git репозиторий',
+                    'path' => $rootDir,
+                    'git_check' => implode("\n", $checkOutput)
+                ], 400);
             }
 
             // Run git pull
