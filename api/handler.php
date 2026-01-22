@@ -417,6 +417,52 @@ try {
             }
             break;
 
+        // Git update
+        case 'git_update':
+            $rootDir = dirname(__DIR__);
+
+            // Check if git is available and this is a git repo
+            if (!is_dir($rootDir . '/.git')) {
+                respond(['error' => 'Не Git репозиторий'], 400);
+            }
+
+            // Run git pull
+            $output = [];
+            $returnCode = 0;
+
+            // First fetch
+            exec("cd " . escapeshellarg($rootDir) . " && git fetch origin 2>&1", $output, $returnCode);
+
+            // Then pull
+            $pullOutput = [];
+            exec("cd " . escapeshellarg($rootDir) . " && git pull origin HEAD 2>&1", $pullOutput, $returnCode);
+            $output = array_merge($output, $pullOutput);
+
+            $outputStr = implode("\n", $output);
+
+            if ($returnCode === 0) {
+                // Check if there were actual changes
+                $changes = '';
+                if (strpos($outputStr, 'Already up to date') !== false || strpos($outputStr, 'Already up-to-date') !== false) {
+                    $changes = 'Уже актуальная версия';
+                } else {
+                    $changes = 'Файлы обновлены';
+                }
+
+                respond([
+                    'success' => true,
+                    'message' => 'Обновление завершено',
+                    'changes' => $changes,
+                    'output' => $outputStr
+                ]);
+            } else {
+                respond([
+                    'success' => false,
+                    'error' => 'Ошибка git pull: ' . $outputStr
+                ], 500);
+            }
+            break;
+
         // Change password
         case 'change_password':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
