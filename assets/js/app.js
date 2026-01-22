@@ -293,6 +293,14 @@ function getFilters() {
     const priceMin = priceMinEl?.value ? Math.round(parseFloat(priceMinEl.value) * 1000000) : '';
     const priceMax = priceMaxEl?.value ? Math.round(parseFloat(priceMaxEl.value) * 1000000) : '';
 
+    // Get sort order from multi-sort chips or fallback to select
+    let orderBy = 'price ASC';
+    if (typeof window.getSortOrderString === 'function') {
+        orderBy = window.getSortOrderString();
+    } else if (document.getElementById('filter-order')) {
+        orderBy = document.getElementById('filter-order').value;
+    }
+
     return {
         project_ids: projectIds,
         rooms: roomsSelected.length > 0 ? roomsSelected.join(',') : '',
@@ -304,7 +312,7 @@ function getFilters() {
         area_max: document.getElementById('filter-area-max')?.value || '',
         floor_min: document.getElementById('filter-floor-min')?.value || '',
         floor_max: document.getElementById('filter-floor-max')?.value || '',
-        order_by: document.getElementById('filter-order')?.value || 'price ASC'
+        order_by: orderBy
     };
 }
 
@@ -332,6 +340,12 @@ function resetFilters() {
     if (floorMin) floorMin.value = '';
     if (floorMax) floorMax.value = '';
     if (filterOrder) filterOrder.value = 'price ASC';
+
+    // Reset multi-sort if available
+    if (typeof window.resetSort === 'function') {
+        window.resetSort();
+        return; // resetSort calls loadApartments
+    }
 
     currentPage = 0;
     loadApartments();

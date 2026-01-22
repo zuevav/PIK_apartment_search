@@ -241,6 +241,66 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             box-shadow: 0 4px 12px rgba(255, 87, 34, 0.3);
         }
 
+        /* Sort chips */
+        .sort-chips-container {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .sort-chips {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .sort-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.4rem 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 20px;
+            background: #f8f8f8;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .sort-chip:hover {
+            border-color: var(--pik-orange);
+            background: #fff5f0;
+        }
+        .sort-chip.asc {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            color: #1565c0;
+        }
+        .sort-chip.desc {
+            background: #fff3e0;
+            border-color: var(--pik-orange);
+            color: #e65100;
+        }
+        .sort-chip .sort-dir {
+            font-weight: bold;
+            min-width: 1rem;
+        }
+        .sort-chip .sort-order {
+            display: none;
+            background: #333;
+            color: white;
+            font-size: 0.7rem;
+            width: 1.1rem;
+            height: 1.1rem;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 1.1rem;
+            margin-left: 0.25rem;
+        }
+        .sort-chip.asc .sort-order,
+        .sort-chip.desc .sort-order {
+            display: inline-block;
+        }
+
         /* Loading overlay */
         .loading-overlay {
             position: fixed;
@@ -442,21 +502,36 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         <!-- Step 3: Results -->
         <div class="wizard-content" id="step-3">
             <div class="card">
-                <div class="card-header">
-                    <span>Результаты поиска: <strong id="apartments-count">0</strong> квартир</span>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button class="btn btn-outline btn-sm" onclick="fetchFromPik()" id="btn-fetch-pik">
-                            Обновить с PIK
-                        </button>
-                        <select id="filter-order" style="margin-right: 0.5rem;">
-                            <option value="price ASC">Цена ↑ дешевле</option>
-                            <option value="price DESC">Цена ↓ дороже</option>
-                            <option value="area ASC">Площадь ↑ меньше</option>
-                            <option value="area DESC">Площадь ↓ больше</option>
-                            <option value="floor ASC">Этаж ↑ ниже</option>
-                            <option value="floor DESC">Этаж ↓ выше</option>
-                        </select>
-                        <button class="btn btn-outline btn-sm" onclick="goToStep(2)">Изменить параметры</button>
+                <div class="card-header" style="flex-direction: column; align-items: stretch; gap: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Результаты поиска: <strong id="apartments-count">0</strong> квартир</span>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-outline btn-sm" onclick="fetchFromPik()" id="btn-fetch-pik">
+                                Обновить с PIK
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="goToStep(2)">Изменить параметры</button>
+                        </div>
+                    </div>
+                    <div class="sort-chips-container">
+                        <span style="font-size: 0.85rem; color: #666; margin-right: 0.5rem;">Сортировка:</span>
+                        <div class="sort-chips" id="sort-chips">
+                            <button class="sort-chip" data-field="price" onclick="toggleSort('price')">
+                                <span class="sort-label">Цена</span>
+                                <span class="sort-dir"></span>
+                                <span class="sort-order"></span>
+                            </button>
+                            <button class="sort-chip" data-field="area" onclick="toggleSort('area')">
+                                <span class="sort-label">Площадь</span>
+                                <span class="sort-dir"></span>
+                                <span class="sort-order"></span>
+                            </button>
+                            <button class="sort-chip" data-field="floor" onclick="toggleSort('floor')">
+                                <span class="sort-label">Этаж</span>
+                                <span class="sort-dir"></span>
+                                <span class="sort-order"></span>
+                            </button>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="resetSort()" style="margin-left: 0.5rem; font-size: 0.75rem;">Сброс</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -1040,18 +1115,80 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 searchInput.addEventListener('input', window.filterProjects);
             }
 
-            // Sort change triggers reload
-            const sortSelect = document.getElementById('filter-order');
-            if (sortSelect) {
-                sortSelect.addEventListener('change', () => {
-                    if (currentStep === 3) window.loadApartments();
-                });
-            }
-
             // Initialize room buttons and price inputs
             initRoomButtons();
             initPriceInputs();
+            initSortChips();
         });
+
+        // Multi-sort state: array of {field, direction} in priority order
+        let sortOrder = [{field: 'price', direction: 'ASC'}]; // Default: price ascending
+
+        function initSortChips() {
+            updateSortChipsUI();
+        }
+
+        function toggleSort(field) {
+            const existingIndex = sortOrder.findIndex(s => s.field === field);
+
+            if (existingIndex === -1) {
+                // Not in sort order - add as ASC
+                sortOrder.push({field, direction: 'ASC'});
+            } else {
+                const current = sortOrder[existingIndex];
+                if (current.direction === 'ASC') {
+                    // ASC -> DESC
+                    current.direction = 'DESC';
+                } else {
+                    // DESC -> remove from sort
+                    sortOrder.splice(existingIndex, 1);
+                }
+            }
+
+            // Ensure at least one sort criteria
+            if (sortOrder.length === 0) {
+                sortOrder.push({field: 'price', direction: 'ASC'});
+            }
+
+            updateSortChipsUI();
+            if (currentStep === 3) window.loadApartments();
+        }
+
+        function resetSort() {
+            sortOrder = [{field: 'price', direction: 'ASC'}];
+            updateSortChipsUI();
+            if (currentStep === 3) window.loadApartments();
+        }
+
+        function updateSortChipsUI() {
+            document.querySelectorAll('.sort-chip').forEach(chip => {
+                const field = chip.dataset.field;
+                const sortInfo = sortOrder.find(s => s.field === field);
+                const dirEl = chip.querySelector('.sort-dir');
+                const orderEl = chip.querySelector('.sort-order');
+
+                chip.classList.remove('asc', 'desc');
+
+                if (sortInfo) {
+                    const idx = sortOrder.indexOf(sortInfo) + 1;
+                    chip.classList.add(sortInfo.direction.toLowerCase());
+                    dirEl.textContent = sortInfo.direction === 'ASC' ? '↑' : '↓';
+                    orderEl.textContent = idx;
+                } else {
+                    dirEl.textContent = '';
+                    orderEl.textContent = '';
+                }
+            });
+        }
+
+        function getSortOrderString() {
+            return sortOrder.map(s => `${s.field} ${s.direction}`).join(', ');
+        }
+
+        // Expose to global
+        window.toggleSort = toggleSort;
+        window.resetSort = resetSort;
+        window.getSortOrderString = getSortOrderString;
     </script>
 </body>
 </html>

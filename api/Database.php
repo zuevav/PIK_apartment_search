@@ -367,18 +367,31 @@ class Database
 
         $whereClause = implode(' AND ', $where);
 
-        // Validate order_by to prevent SQL injection
-        $allowedOrderBy = [
-            'price ASC', 'price DESC',
-            'area ASC', 'area DESC',
-            'floor ASC', 'floor DESC',
-            'rooms ASC', 'rooms DESC',
-            'first_seen_at DESC', 'first_seen_at ASC'
-        ];
-        $orderBy = $filters['order_by'] ?? 'price ASC';
-        if (!in_array($orderBy, $allowedOrderBy)) {
-            $orderBy = 'price ASC';
+        // Validate order_by to prevent SQL injection (supports multiple fields)
+        $allowedFields = ['price', 'area', 'floor', 'rooms', 'first_seen_at'];
+        $allowedDirections = ['ASC', 'DESC'];
+
+        $orderByInput = $filters['order_by'] ?? 'price ASC';
+        $orderByParts = array_map('trim', explode(',', $orderByInput));
+        $validatedOrderBy = [];
+
+        foreach ($orderByParts as $part) {
+            $tokens = preg_split('/\s+/', trim($part));
+            if (count($tokens) >= 2) {
+                $field = strtolower($tokens[0]);
+                $direction = strtoupper($tokens[1]);
+                if (in_array($field, $allowedFields) && in_array($direction, $allowedDirections)) {
+                    $validatedOrderBy[] = "a.$field $direction";
+                }
+            }
         }
+
+        // Default to price ASC if nothing valid
+        if (empty($validatedOrderBy)) {
+            $validatedOrderBy[] = 'a.price ASC';
+        }
+
+        $orderByClause = implode(', ', $validatedOrderBy);
 
         // Build count query with same where clause
         $countSql = "SELECT COUNT(*) FROM apartments a WHERE $whereClause";
@@ -393,7 +406,7 @@ class Database
                 FROM apartments a
                 LEFT JOIN projects p ON a.project_id = p.id
                 WHERE $whereClause
-                ORDER BY a.$orderBy
+                ORDER BY $orderByClause
                 LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
