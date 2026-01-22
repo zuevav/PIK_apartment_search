@@ -409,10 +409,10 @@ input::placeholder {
 }
 
 .apartment-footer {
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     background: var(--pik-light-gray);
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
 }
 
@@ -450,6 +450,44 @@ input::placeholder {
 .price-badge.changed {
     background: #fff3e0;
     color: #f57c00;
+}
+
+/* Project Group Headers (for ЖК grouping) */
+.project-group-header {
+    background: linear-gradient(135deg, var(--pik-orange) 0%, var(--pik-orange-dark) 100%);
+    color: var(--pik-white);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: var(--shadow);
+}
+
+.project-group-header:first-child {
+    margin-top: 0;
+}
+
+.project-group-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+}
+
+.project-icon {
+    font-size: 1.5rem;
+}
+
+.project-count {
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.9;
+    margin-left: auto;
+    background: rgba(255,255,255,0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
 }
 
 .price-up { color: var(--pik-red); }
