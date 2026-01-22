@@ -205,13 +205,8 @@ class PikApi
             $baseParams['priceMax'] = $params['price_max'];
         }
 
-        // Add area filter
-        if (!empty($params['area_min'])) {
-            $baseParams['areaMin'] = $params['area_min'];
-        }
-        if (!empty($params['area_max'])) {
-            $baseParams['areaMax'] = $params['area_max'];
-        }
+        // NOTE: PIK API returns 500 error with areaMin/areaMax params
+        // Area filtering is done client-side after fetching results
 
         // Fetch with pagination
         while (true) {

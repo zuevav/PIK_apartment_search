@@ -446,8 +446,33 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                         </label>
                     </div>
                     <div class="filter-group">
-                        <label>Email по умолчанию</label>
-                        <input type="email" id="setting-email" placeholder="your@email.com">
+                        <label>Почтовый сервис</label>
+                        <select id="setting-email-provider" onchange="onEmailProviderChange()">
+                            <option value="">Выберите сервис</option>
+                            <option value="yandex">Яндекс Почта</option>
+                            <option value="mailru">Mail.ru</option>
+                            <option value="gmail">Gmail</option>
+                            <option value="custom">Свой SMTP сервер</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Ваш Email (для отправки и получения)</label>
+                        <input type="email" id="setting-email" placeholder="your@yandex.ru">
+                    </div>
+                    <div class="filter-group">
+                        <label>Пароль приложения</label>
+                        <input type="password" id="setting-email-password" placeholder="Пароль приложения">
+                        <small id="password-hint" style="color:#888;margin-top:0.5rem;display:block;"></small>
+                    </div>
+                    <div id="custom-smtp-settings" style="display:none;">
+                        <div class="filter-group">
+                            <label>SMTP сервер</label>
+                            <input type="text" id="setting-smtp-host" placeholder="smtp.example.com">
+                        </div>
+                        <div class="filter-group">
+                            <label>Порт</label>
+                            <input type="number" id="setting-smtp-port" placeholder="465" value="465">
+                        </div>
                     </div>
                     <div class="filter-group">
                         <label>Интервал проверки</label>
@@ -461,6 +486,9 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                     </div>
                     <button class="btn btn-primary" onclick="saveSettings()">
                         Сохранить
+                    </button>
+                    <button class="btn btn-outline" onclick="testEmail()" style="margin-left:0.5rem;">
+                        Тест письма
                     </button>
                 </div>
             </div>
@@ -706,6 +734,67 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         function hideSettings() {
             document.getElementById('settings-panel').classList.remove('active');
             goToStep(currentStep);
+        }
+
+        // Email provider settings
+        const emailProviders = {
+            yandex: {
+                host: 'smtp.yandex.ru',
+                port: 465,
+                hint: 'Создайте пароль приложения: Яндекс ID → Безопасность → Пароли приложений'
+            },
+            mailru: {
+                host: 'smtp.mail.ru',
+                port: 465,
+                hint: 'Создайте пароль приложения: Mail.ru → Настройки → Пароль и безопасность → Пароли для приложений'
+            },
+            gmail: {
+                host: 'smtp.gmail.com',
+                port: 587,
+                hint: 'Создайте пароль приложения: Google → Безопасность → Двухэтапная аутентификация → Пароли приложений'
+            }
+        };
+
+        function onEmailProviderChange() {
+            const provider = document.getElementById('setting-email-provider').value;
+            const hint = document.getElementById('password-hint');
+            const customSettings = document.getElementById('custom-smtp-settings');
+            const emailInput = document.getElementById('setting-email');
+
+            if (provider === 'custom') {
+                customSettings.style.display = 'block';
+                hint.textContent = '';
+            } else {
+                customSettings.style.display = 'none';
+                if (emailProviders[provider]) {
+                    hint.innerHTML = emailProviders[provider].hint;
+                    // Update email placeholder
+                    const domains = {yandex: 'yandex.ru', mailru: 'mail.ru', gmail: 'gmail.com'};
+                    emailInput.placeholder = 'your@' + (domains[provider] || 'email.com');
+                } else {
+                    hint.textContent = '';
+                }
+            }
+        }
+
+        async function testEmail() {
+            const email = document.getElementById('setting-email').value;
+            if (!email) {
+                showAlert('Введите email', 'warning');
+                return;
+            }
+
+            try {
+                showAlert('Отправка тестового письма...', 'info');
+                const result = await window.api('test_email', { email }, 'POST');
+                if (result.success) {
+                    showAlert('Тестовое письмо отправлено! Проверьте почту.', 'success');
+                } else {
+                    showAlert('Ошибка: ' + (result.error || 'Не удалось отправить'), 'danger');
+                }
+            } catch (e) {
+                showAlert('Ошибка отправки: ' + e.message, 'danger');
+            }
         }
 
         // Override toggleProject to update counter
