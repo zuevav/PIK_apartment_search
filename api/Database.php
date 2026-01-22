@@ -366,7 +366,19 @@ class Database
         }
 
         $whereClause = implode(' AND ', $where);
+
+        // Validate order_by to prevent SQL injection
+        $allowedOrderBy = [
+            'price ASC', 'price DESC',
+            'area ASC', 'area DESC',
+            'floor ASC', 'floor DESC',
+            'rooms ASC', 'rooms DESC',
+            'first_seen_at DESC', 'first_seen_at ASC'
+        ];
         $orderBy = $filters['order_by'] ?? 'price ASC';
+        if (!in_array($orderBy, $allowedOrderBy)) {
+            $orderBy = 'price ASC';
+        }
 
         // Build count query with same where clause
         $countSql = "SELECT COUNT(*) FROM apartments a WHERE $whereClause";

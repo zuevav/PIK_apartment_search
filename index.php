@@ -449,10 +449,12 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                             Обновить с PIK
                         </button>
                         <select id="filter-order" style="margin-right: 0.5rem;">
-                            <option value="price ASC">Цена ↑</option>
-                            <option value="price DESC">Цена ↓</option>
-                            <option value="area ASC">Площадь ↑</option>
-                            <option value="area DESC">Площадь ↓</option>
+                            <option value="price ASC">Цена ↑ дешевле</option>
+                            <option value="price DESC">Цена ↓ дороже</option>
+                            <option value="area ASC">Площадь ↑ меньше</option>
+                            <option value="area DESC">Площадь ↓ больше</option>
+                            <option value="floor ASC">Этаж ↑ ниже</option>
+                            <option value="floor DESC">Этаж ↓ выше</option>
                         </select>
                         <button class="btn btn-outline btn-sm" onclick="goToStep(2)">Изменить параметры</button>
                     </div>
