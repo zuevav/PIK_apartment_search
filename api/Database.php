@@ -71,6 +71,7 @@ class Database
                 pik_id INTEGER UNIQUE NOT NULL,
                 project_id INTEGER,
                 bulk_id INTEGER,
+                block_name TEXT,
                 rooms INTEGER,
                 area REAL,
                 floor INTEGER,
@@ -89,6 +90,13 @@ class Database
                 FOREIGN KEY (project_id) REFERENCES projects(id)
             )
         ");
+
+        // Add block_name column if missing (migration)
+        try {
+            $this->pdo->exec("ALTER TABLE apartments ADD COLUMN block_name TEXT");
+        } catch (PDOException $e) {
+            // Column already exists, ignore
+        }
 
         // Price history
         $this->pdo->exec("
@@ -209,6 +217,7 @@ class Database
                     price = :price,
                     price_per_meter = :price_per_meter,
                     address = :address,
+                    block_name = :block_name,
                     bulk_name = :bulk_name,
                     section = :section,
                     finishing = :finishing,
@@ -223,11 +232,11 @@ class Database
             $isNew = true;
             $stmt = $this->pdo->prepare("
                 INSERT INTO apartments (
-                    pik_id, project_id, bulk_id, rooms, area, floor, floors_total,
+                    pik_id, project_id, bulk_id, block_name, rooms, area, floor, floors_total,
                     price, price_per_meter, address, bulk_name, section, finishing,
                     settlement_date, url, status, first_seen_at, last_seen_at
                 ) VALUES (
-                    :pik_id, :project_id, :bulk_id, :rooms, :area, :floor, :floors_total,
+                    :pik_id, :project_id, :bulk_id, :block_name, :rooms, :area, :floor, :floors_total,
                     :price, :price_per_meter, :address, :bulk_name, :section, :finishing,
                     :settlement_date, :url, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
@@ -238,6 +247,7 @@ class Database
             'pik_id' => $data['pik_id'],
             'project_id' => $data['project_id'] ?? null,
             'bulk_id' => $data['bulk_id'] ?? null,
+            'block_name' => $data['block_name'] ?? null,
             'rooms' => $data['rooms'] ?? null,
             'area' => $data['area'] ?? null,
             'floor' => $data['floor'] ?? null,
@@ -367,7 +377,7 @@ class Database
         $countStmt->execute();
         $total = $countStmt->fetchColumn();
 
-        $sql = "SELECT a.*, p.name as project_name
+        $sql = "SELECT a.*, COALESCE(p.name, a.block_name) as project_name
                 FROM apartments a
                 LEFT JOIN projects p ON a.project_id = p.id
                 WHERE $whereClause

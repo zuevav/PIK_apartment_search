@@ -353,48 +353,79 @@ function renderApartments(apartments) {
         return;
     }
 
-    container.innerHTML = apartments.map(apt => {
-        const rooms = apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комн.`;
-        const priceFormatted = formatPrice(apt.price);
-        const pricePerMeter = apt.price_per_meter ? formatPrice(apt.price_per_meter) + '/м²' : '';
-        const isNew = isToday(apt.first_seen_at);
+    // Group apartments by ЖК (project_name or block_name)
+    const groupedByProject = {};
+    apartments.forEach(apt => {
+        const projectName = apt.project_name || apt.block_name || apt.address || 'Другие';
+        if (!groupedByProject[projectName]) {
+            groupedByProject[projectName] = [];
+        }
+        groupedByProject[projectName].push(apt);
+    });
 
-        return `
-            <div class="apartment-card" onclick="showApartmentDetails(${apt.id})">
-                <div class="apartment-header">
-                    <div class="apartment-price">
-                        ${priceFormatted}
-                        ${isNew ? '<span class="price-badge new">Новая</span>' : ''}
-                    </div>
-                    <div class="apartment-price-per-meter">${pricePerMeter}</div>
-                </div>
-                <div class="apartment-body">
-                    <div class="apartment-params">
-                        <div class="param">
-                            <span class="param-label">Комнаты</span>
-                            <span class="param-value">${rooms}</span>
-                        </div>
-                        <div class="param">
-                            <span class="param-label">Площадь</span>
-                            <span class="param-value">${apt.area} м²</span>
-                        </div>
-                        <div class="param">
-                            <span class="param-label">Этаж</span>
-                            <span class="param-value">${apt.floor || '-'}${apt.floors_total ? '/' + apt.floors_total : ''}</span>
-                        </div>
-                        <div class="param">
-                            <span class="param-label">Сдача</span>
-                            <span class="param-value">${apt.settlement_date || '-'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="apartment-footer">
-                    <span class="apartment-project">${apt.project_name || apt.address || 'ЖК'}</span>
-                    ${apt.url ? `<a href="${apt.url}" target="_blank" class="apartment-link" onclick="event.stopPropagation()">На сайте PIK →</a>` : ''}
-                </div>
+    // Sort project names alphabetically
+    const sortedProjectNames = Object.keys(groupedByProject).sort();
+
+    let html = '';
+    sortedProjectNames.forEach(projectName => {
+        const projectApartments = groupedByProject[projectName];
+
+        // Project header
+        html += `
+            <div class="project-group-header" style="grid-column: 1/-1;">
+                <h3 class="project-group-title">
+                    <span class="project-icon">🏢</span>
+                    ${projectName}
+                    <span class="project-count">${projectApartments.length} квартир</span>
+                </h3>
             </div>
         `;
-    }).join('');
+
+        // Apartments in this project
+        projectApartments.forEach(apt => {
+            const rooms = apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комн.`;
+            const priceFormatted = formatPrice(apt.price);
+            const pricePerMeter = apt.price_per_meter ? formatPrice(apt.price_per_meter) + '/м²' : '';
+            const isNew = isToday(apt.first_seen_at);
+
+            html += `
+                <div class="apartment-card" onclick="showApartmentDetails(${apt.id})">
+                    <div class="apartment-header">
+                        <div class="apartment-price">
+                            ${priceFormatted}
+                            ${isNew ? '<span class="price-badge new">Новая</span>' : ''}
+                        </div>
+                        <div class="apartment-price-per-meter">${pricePerMeter}</div>
+                    </div>
+                    <div class="apartment-body">
+                        <div class="apartment-params">
+                            <div class="param">
+                                <span class="param-label">Комнаты</span>
+                                <span class="param-value">${rooms}</span>
+                            </div>
+                            <div class="param">
+                                <span class="param-label">Площадь</span>
+                                <span class="param-value">${apt.area} м²</span>
+                            </div>
+                            <div class="param">
+                                <span class="param-label">Этаж</span>
+                                <span class="param-value">${apt.floor || '-'}${apt.floors_total ? '/' + apt.floors_total : ''}</span>
+                            </div>
+                            <div class="param">
+                                <span class="param-label">Сдача</span>
+                                <span class="param-value">${apt.settlement_date || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="apartment-footer">
+                        ${apt.url ? `<a href="${apt.url}" target="_blank" class="apartment-link" onclick="event.stopPropagation()">На сайте PIK →</a>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    });
+
+    container.innerHTML = html;
 }
 
 function updatePagination() {

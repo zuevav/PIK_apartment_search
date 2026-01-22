@@ -94,6 +94,7 @@ try {
 
             $filters = [
                 'project_ids' => $projectIds,
+                'rooms' => $_GET['rooms'] ?? null, // Support comma-separated rooms (e.g., "0,1,2")
                 'rooms_min' => $_GET['rooms_min'] ?? null,
                 'rooms_max' => $_GET['rooms_max'] ?? null,
                 'price_min' => $_GET['price_min'] ?? null,
