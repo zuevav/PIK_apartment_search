@@ -255,7 +255,45 @@ class PikApi
             }
         }
 
-        return $allFlats;
+        // PIK API sometimes ignores filters, so filter on our side too
+        $allFlats = array_filter($allFlats, function($flat) use ($params) {
+            // Filter by price
+            if (!empty($params['price_min']) && $flat['price'] < $params['price_min']) {
+                return false;
+            }
+            if (!empty($params['price_max']) && $flat['price'] > $params['price_max']) {
+                return false;
+            }
+            // Filter by area
+            if (!empty($params['area_min']) && $flat['area'] < $params['area_min']) {
+                return false;
+            }
+            if (!empty($params['area_max']) && $flat['area'] > $params['area_max']) {
+                return false;
+            }
+            // Filter by rooms
+            if (!empty($params['rooms'])) {
+                $rooms = (array) $params['rooms'];
+                $flatRooms = $flat['rooms'] ?? 0;
+                // Check if flat rooms match any of selected (3 means 3+)
+                $match = false;
+                foreach ($rooms as $r) {
+                    if ($r == 3 && $flatRooms >= 3) {
+                        $match = true;
+                        break;
+                    } elseif ($flatRooms == $r) {
+                        $match = true;
+                        break;
+                    }
+                }
+                if (!$match) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        return array_values($allFlats);
     }
 
     /**
