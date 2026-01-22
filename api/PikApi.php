@@ -186,9 +186,10 @@ class PikApi
         $limit = 100; // Increase limit for efficiency
 
         // Build base search params - query all blocks at once
+        // NOTE: PIK API uses 'blocks' (plural), not 'block' (singular)!
         $baseParams = [
             'type' => 1,
-            'block' => implode(',', $blockIds), // All blocks in one request
+            'blocks' => implode(',', $blockIds), // All blocks in one request
             'onlyFlats' => 1,
         ];
 
