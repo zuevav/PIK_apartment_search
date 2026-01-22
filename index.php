@@ -620,6 +620,19 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                     </code>
                 </div>
             </div>
+
+            <div class="card mt-2">
+                <div class="card-header">Обновление системы</div>
+                <div class="card-body">
+                    <p style="margin-bottom: 1rem; color: #666;">
+                        Обновить систему до последней версии из Git репозитория:
+                    </p>
+                    <button class="btn btn-primary" onclick="updateFromGit()" id="btn-update-git">
+                        🔄 Обновить из Git
+                    </button>
+                    <div id="git-update-status" class="mt-1"></div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -891,6 +904,50 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 }
             } catch (e) {
                 showAlert('Ошибка отправки: ' + e.message, 'danger');
+            }
+        }
+
+        async function updateFromGit() {
+            const btn = document.getElementById('btn-update-git');
+            const statusDiv = document.getElementById('git-update-status');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Обновление...';
+            statusDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Получение обновлений...</div>';
+
+            try {
+                const result = await window.api('git_update', {}, 'POST');
+
+                if (result.success) {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Обновлено успешно!<br>
+                            <small>${result.message || ''}</small>
+                            ${result.changes ? '<br><small>Изменения: ' + result.changes + '</small>' : ''}
+                        </div>
+                    `;
+                    // Reload page after successful update
+                    setTimeout(() => {
+                        if (confirm('Система обновлена. Перезагрузить страницу?')) {
+                            window.location.reload();
+                        }
+                    }, 1000);
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            ❌ Ошибка: ${result.error || 'Не удалось обновить'}
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                statusDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Ошибка: ${e.message}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Обновить из Git';
             }
         }
 
