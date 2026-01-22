@@ -294,6 +294,9 @@ try {
             $settings = [
                 'email_enabled' => $db->getSetting('email_enabled', '0'),
                 'email_to' => $db->getSetting('email_to', ''),
+                'email_provider' => $db->getSetting('email_provider', ''),
+                'smtp_host' => $db->getSetting('smtp_host', ''),
+                'smtp_port' => $db->getSetting('smtp_port', '465'),
                 'check_interval' => $db->getSetting('check_interval', '6'),
                 'last_check' => $db->getSetting('last_check', null),
             ];
@@ -309,11 +312,89 @@ try {
             if (isset($data['email_to'])) {
                 $db->setSetting('email_to', $data['email_to']);
             }
+            if (isset($data['email_provider'])) {
+                $db->setSetting('email_provider', $data['email_provider']);
+            }
+            if (!empty($data['email_password'])) {
+                // Encrypt password before saving
+                $db->setSetting('email_password', base64_encode($data['email_password']));
+            }
+            if (isset($data['smtp_host'])) {
+                $db->setSetting('smtp_host', $data['smtp_host']);
+            }
+            if (isset($data['smtp_port'])) {
+                $db->setSetting('smtp_port', (string) $data['smtp_port']);
+            }
             if (isset($data['check_interval'])) {
                 $db->setSetting('check_interval', (string) $data['check_interval']);
             }
 
             respond(['success' => true]);
+            break;
+
+        case 'test_email':
+            $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $email = $data['email'] ?? '';
+
+            if (empty($email)) {
+                respond(['error' => 'Email not provided'], 400);
+            }
+
+            // Get SMTP settings
+            $provider = $db->getSetting('email_provider');
+            $password = base64_decode($db->getSetting('email_password') ?: '');
+
+            // Provider presets
+            $providers = [
+                'yandex' => ['host' => 'smtp.yandex.ru', 'port' => 465, 'encryption' => 'ssl'],
+                'mailru' => ['host' => 'smtp.mail.ru', 'port' => 465, 'encryption' => 'ssl'],
+                'gmail' => ['host' => 'smtp.gmail.com', 'port' => 587, 'encryption' => 'tls'],
+            ];
+
+            $smtpConfig = [];
+            if ($provider && isset($providers[$provider])) {
+                $smtpConfig = $providers[$provider];
+            } elseif ($provider === 'custom') {
+                $smtpConfig = [
+                    'host' => $db->getSetting('smtp_host'),
+                    'port' => (int) ($db->getSetting('smtp_port') ?: 465),
+                    'encryption' => 'ssl'
+                ];
+            }
+
+            if (empty($smtpConfig['host']) || empty($password)) {
+                respond(['error' => 'Настройте почтовый сервис и пароль приложения'], 400);
+            }
+
+            // Create mailer with SMTP settings
+            $mailerConfig = [
+                'email' => [
+                    'enabled' => true,
+                    'from' => $email,
+                    'from_name' => 'PIK Tracker',
+                    'smtp' => [
+                        'host' => $smtpConfig['host'],
+                        'port' => $smtpConfig['port'],
+                        'encryption' => $smtpConfig['encryption'],
+                        'username' => $email,
+                        'password' => $password,
+                    ]
+                ]
+            ];
+
+            require_once __DIR__ . '/Mailer.php';
+            $mailer = new Mailer($mailerConfig);
+
+            $subject = 'PIK Tracker - Тестовое сообщение';
+            $body = '<h2>Уведомления настроены!</h2><p>Это тестовое сообщение от PIK Apartment Tracker.</p><p>Теперь вы будете получать уведомления о новых квартирах и изменениях цен.</p>';
+
+            $result = $mailer->send($email, $subject, $body);
+
+            if ($result) {
+                respond(['success' => true]);
+            } else {
+                respond(['error' => 'Не удалось отправить. Проверьте email и пароль приложения.'], 500);
+            }
             break;
 
         // Change password

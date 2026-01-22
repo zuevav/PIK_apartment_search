@@ -720,20 +720,41 @@ async function loadSettings() {
         const emailEnabled = document.getElementById('setting-email-enabled');
         const emailTo = document.getElementById('setting-email');
         const interval = document.getElementById('setting-interval');
+        const provider = document.getElementById('setting-email-provider');
+        const smtpHost = document.getElementById('setting-smtp-host');
+        const smtpPort = document.getElementById('setting-smtp-port');
 
         if (emailEnabled) emailEnabled.checked = s.email_enabled === '1';
         if (emailTo) emailTo.value = s.email_to || '';
         if (interval) interval.value = s.check_interval || '6';
+        if (provider) {
+            provider.value = s.email_provider || '';
+            // Trigger change to show/hide custom settings
+            if (typeof onEmailProviderChange === 'function') {
+                onEmailProviderChange();
+            }
+        }
+        if (smtpHost) smtpHost.value = s.smtp_host || '';
+        if (smtpPort) smtpPort.value = s.smtp_port || '465';
     } catch (e) {
         console.error('Failed to load settings:', e);
     }
 }
 
 async function saveSettings() {
+    const provider = document.getElementById('setting-email-provider')?.value || '';
+    const smtpHost = document.getElementById('setting-smtp-host')?.value || '';
+    const smtpPort = document.getElementById('setting-smtp-port')?.value || '465';
+    const emailPassword = document.getElementById('setting-email-password')?.value || '';
+
     try {
         await api('save_settings', {
             email_enabled: document.getElementById('setting-email-enabled').checked,
             email_to: document.getElementById('setting-email').value,
+            email_provider: provider,
+            email_password: emailPassword,
+            smtp_host: smtpHost,
+            smtp_port: smtpPort,
             check_interval: document.getElementById('setting-interval').value
         }, 'POST');
 
