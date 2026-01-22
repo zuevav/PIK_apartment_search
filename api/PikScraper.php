@@ -30,6 +30,48 @@ class PikScraper
             return [];
         }
 
+        // Get rooms filter
+        $rooms = $params['rooms'] ?? [];
+        if (!is_array($rooms)) {
+            $rooms = $rooms ? array_map('intval', explode(',', $rooms)) : [];
+        }
+
+        // If no room filter or multiple rooms - fetch each room type separately
+        // This ensures we get ALL apartments from PIK (website limits results otherwise)
+        if (empty($rooms)) {
+            // Fetch all room types: studio (0), 1, 2, 3+
+            $rooms = [0, 1, 2, 3];
+        }
+
+        $allFlats = [];
+        $seenIds = [];
+
+        foreach ($rooms as $roomType) {
+            $roomParams = $params;
+            $roomParams['rooms'] = [$roomType];
+
+            $flats = $this->fetchFlatsForRoomType($roomParams);
+
+            foreach ($flats as $flat) {
+                // Deduplicate by pik_id
+                if (!isset($seenIds[$flat['pik_id']])) {
+                    $seenIds[$flat['pik_id']] = true;
+                    $allFlats[] = $flat;
+                }
+            }
+
+            // Small delay between room type requests
+            usleep(150000); // 150ms
+        }
+
+        return $allFlats;
+    }
+
+    /**
+     * Fetch flats for a specific room type
+     */
+    private function fetchFlatsForRoomType(array $params): array
+    {
         // Build search URL
         $url = $this->buildSearchUrl($params);
 
@@ -71,7 +113,7 @@ class PikScraper
 
         } while ($page <= $lastPage);
 
-        // Apply client-side filters (in case website doesn't filter properly)
+        // Apply client-side filters (price, area)
         $allFlats = $this->applyFilters($allFlats, $params);
 
         return $allFlats;
@@ -96,9 +138,16 @@ class PikScraper
                 0 => 'studio',
                 1 => 'one-room',
                 2 => 'two-room',
-                3 => 'three-room'
+                3 => 'three-room',
+                4 => 'four-room',
             ];
-            $roomPath = '/' . ($roomMap[$rooms[0]] ?? '');
+            $roomType = (int) $rooms[0];
+            // For 3+ rooms, use three-room (PIK groups them together)
+            if ($roomType >= 3) {
+                $roomPath = '/three-room';
+            } else {
+                $roomPath = '/' . ($roomMap[$roomType] ?? '');
+            }
         }
 
         $url = "{$this->baseUrl}/search/{$slug}{$roomPath}";
