@@ -15,7 +15,7 @@ if (php_sapi_name() !== 'cli' && !defined('CRON_ALLOW_WEB')) {
 }
 
 require_once __DIR__ . '/api/Database.php';
-require_once __DIR__ . '/api/PikApi.php';
+require_once __DIR__ . '/api/PikScraper.php';
 require_once __DIR__ . '/api/Mailer.php';
 
 $config = require __DIR__ . '/config.php';
@@ -27,7 +27,7 @@ echo "[" . date('Y-m-d H:i:s') . "] PIK Tracker Cron started\n";
 
 try {
     $db = new Database($config['db_path']);
-    $pik = new PikApi($config);
+    $scraper = new PikScraper($config);
     $mailer = new Mailer($config);
 
     // Get tracked projects
@@ -52,7 +52,17 @@ try {
         echo "  Processing: {$project['name']}... ";
 
         try {
-            $flats = $pik->getFlats(['block_ids' => [$project['pik_id']]]);
+            // Use scraper instead of API for better results
+            $slug = $project['slug'] ?? '';
+            if (empty($slug)) {
+                echo "SKIP (no slug)\n";
+                continue;
+            }
+
+            $flats = $scraper->getFlats([
+                'block_slug' => $slug,
+                'block_id' => $project['pik_id'],
+            ]);
             echo count($flats) . " flats found. ";
 
             $projectNew = 0;
@@ -60,6 +70,15 @@ try {
 
             foreach ($flats as $flat) {
                 $flat['project_id'] = $project['id'];
+
+                // Ensure block info is set
+                if (empty($flat['block_id'])) {
+                    $flat['block_id'] = $project['pik_id'];
+                }
+                if (empty($flat['block_name'])) {
+                    $flat['block_name'] = $project['name'];
+                }
+
                 $result = $db->saveApartment($flat);
 
                 $results['total_fetched']++;
@@ -84,6 +103,9 @@ try {
             }
 
             echo "New: $projectNew, Updated: $projectUpdated\n";
+
+            // Small delay between projects to avoid rate limiting
+            usleep(500000); // 500ms
 
         } catch (Exception $e) {
             $error = "Error processing {$project['name']}: " . $e->getMessage();
