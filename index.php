@@ -111,13 +111,75 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             margin-left: 0.5rem;
         }
         .criteria-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 1.5rem;
         }
+        .filter-card {
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid #eee;
+        }
+        .filter-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: var(--pik-dark);
+        }
+        .filter-card-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--pik-orange);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+        .price-presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .price-preset {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .price-preset:hover {
+            border-color: var(--pik-orange);
+            color: var(--pik-orange);
+        }
+        .price-preset.active {
+            background: var(--pik-orange);
+            border-color: var(--pik-orange);
+            color: white;
+        }
+        .range-inputs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .range-inputs input {
+            flex: 1;
+            text-align: center;
+        }
+        .range-inputs .separator {
+            color: #999;
+            font-weight: 500;
+        }
         @media (max-width: 768px) {
-            .criteria-grid {
-                grid-template-columns: 1fr;
+            .price-presets {
+                justify-content: center;
             }
         }
         .subscription-box {
@@ -153,26 +215,30 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
         /* Room buttons */
         .rooms-buttons {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.75rem;
         }
         .room-btn {
             flex: 1;
-            padding: 0.75rem 1rem;
-            border: 2px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: var(--pik-white);
+            padding: 1rem 0.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
             cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 500;
+            font-size: 1rem;
+            font-weight: 600;
             transition: all 0.2s;
+            text-align: center;
         }
         .room-btn:hover {
             border-color: var(--pik-orange);
+            background: #fff5f0;
         }
         .room-btn.active {
             background: var(--pik-orange);
             border-color: var(--pik-orange);
             color: white;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 87, 34, 0.3);
         }
 
         /* Loading overlay */
@@ -296,11 +362,13 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                     Шаг 2: Укажите параметры квартиры
                 </div>
                 <div class="card-body">
-                    <p class="mb-2">Задайте критерии поиска (все поля необязательные):</p>
-
                     <div class="criteria-grid">
-                        <div class="filter-group">
-                            <label>Количество комнат</label>
+                        <!-- Комнаты -->
+                        <div class="filter-card">
+                            <div class="filter-card-header">
+                                <div class="filter-card-icon">&#x1f6cb;</div>
+                                <span>Количество комнат</span>
+                            </div>
                             <div class="rooms-buttons" id="rooms-buttons">
                                 <button type="button" class="room-btn" data-rooms="0">Студия</button>
                                 <button type="button" class="room-btn" data-rooms="1">1</button>
@@ -309,30 +377,52 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                             </div>
                         </div>
 
-                        <div class="filter-group">
-                            <label>Цена (млн ₽)</label>
-                            <div class="filter-row">
+                        <!-- Цена -->
+                        <div class="filter-card">
+                            <div class="filter-card-header">
+                                <div class="filter-card-icon">&#x20bd;</div>
+                                <span>Бюджет</span>
+                            </div>
+                            <div class="price-presets">
+                                <button type="button" class="price-preset" onclick="setPriceRange(0, 10)">до 10 млн</button>
+                                <button type="button" class="price-preset" onclick="setPriceRange(10, 15)">10-15 млн</button>
+                                <button type="button" class="price-preset" onclick="setPriceRange(15, 20)">15-20 млн</button>
+                                <button type="button" class="price-preset" onclick="setPriceRange(20, 30)">20-30 млн</button>
+                                <button type="button" class="price-preset" onclick="setPriceRange(30, 0)">от 30 млн</button>
+                            </div>
+                            <div class="range-inputs">
                                 <input type="number" id="filter-price-min" placeholder="от" min="0" step="0.5">
-                                <span style="padding: 0 0.5rem;">—</span>
+                                <span class="separator">—</span>
                                 <input type="number" id="filter-price-max" placeholder="до" min="0" step="0.5">
+                                <span style="color:#888;margin-left:0.25rem;">млн ₽</span>
                             </div>
                         </div>
 
-                        <div class="filter-group">
-                            <label>Площадь (м²)</label>
-                            <div class="filter-row">
-                                <input type="number" id="filter-area-min" placeholder="от" min="0" step="5">
-                                <span style="padding: 0 0.5rem;">—</span>
-                                <input type="number" id="filter-area-max" placeholder="до" min="0" step="5">
+                        <!-- Площадь и Этаж в одну строку -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="filter-card">
+                                <div class="filter-card-header">
+                                    <div class="filter-card-icon">&#x25a2;</div>
+                                    <span>Площадь</span>
+                                </div>
+                                <div class="range-inputs">
+                                    <input type="number" id="filter-area-min" placeholder="от" min="0" step="5">
+                                    <span class="separator">—</span>
+                                    <input type="number" id="filter-area-max" placeholder="до" min="0" step="5">
+                                    <span style="color:#888;margin-left:0.25rem;">м²</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="filter-group">
-                            <label>Этаж</label>
-                            <div class="filter-row">
-                                <input type="number" id="filter-floor-min" placeholder="от" min="1">
-                                <span style="padding: 0 0.5rem;">—</span>
-                                <input type="number" id="filter-floor-max" placeholder="до" min="1">
+                            <div class="filter-card">
+                                <div class="filter-card-header">
+                                    <div class="filter-card-icon">&#x2191;</div>
+                                    <span>Этаж</span>
+                                </div>
+                                <div class="range-inputs">
+                                    <input type="number" id="filter-floor-min" placeholder="от" min="1">
+                                    <span class="separator">—</span>
+                                    <input type="number" id="filter-floor-max" placeholder="до" min="1">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -821,6 +911,37 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
             });
         }
 
+        // Price range presets
+        function setPriceRange(min, max) {
+            const minInput = document.getElementById('filter-price-min');
+            const maxInput = document.getElementById('filter-price-max');
+
+            minInput.value = min || '';
+            maxInput.value = max || '';
+
+            // Update preset buttons
+            document.querySelectorAll('.price-preset').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Clear price presets when manually editing
+        function initPriceInputs() {
+            const minInput = document.getElementById('filter-price-min');
+            const maxInput = document.getElementById('filter-price-max');
+
+            [minInput, maxInput].forEach(input => {
+                if (input) {
+                    input.addEventListener('input', () => {
+                        document.querySelectorAll('.price-preset').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                    });
+                }
+            });
+        }
+
         function getSelectedRooms() {
             const selected = [];
             document.querySelectorAll('.room-btn.active').forEach(btn => {
@@ -861,8 +982,9 @@ $siteName = $config['site_name'] ?? 'PIK Tracker';
                 });
             }
 
-            // Initialize room buttons
+            // Initialize room buttons and price inputs
             initRoomButtons();
+            initPriceInputs();
         });
     </script>
 </body>
