@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/PikApi.php';
+require_once __DIR__ . '/PikScraper.php';
 require_once __DIR__ . '/Auth.php';
 
 $config = require __DIR__ . '/../config.php';
@@ -36,6 +37,7 @@ $config = require __DIR__ . '/../config.php';
 try {
     $db = new Database($config['db_path']);
     $pik = new PikApi($config);
+    $scraper = new PikScraper($config);
     $auth = new Auth($db->getPdo(), $config);
 
     // Check authentication
@@ -136,25 +138,12 @@ try {
             break;
 
         case 'fetch_apartments':
-            // Fetch apartments from PIK API using filters from request
+            // Fetch apartments using website scraper (more complete than API)
             $trackedProjects = $db->getProjects(true);
 
             if (empty($trackedProjects)) {
                 respond(['error' => 'No tracked projects. Please add projects to track first.'], 400);
             }
-
-            // Build map of pik_id => project for quick lookup
-            $projectMap = [];
-            $trackedPikIds = [];
-            foreach ($trackedProjects as $project) {
-                $projectMap[$project['pik_id']] = $project;
-                $trackedPikIds[] = $project['pik_id'];
-            }
-
-            $apiParams = [
-                'block_ids' => $trackedPikIds,
-                'limit' => 1000,
-            ];
 
             // Apply filters from request (UI form)
             $rooms = $_GET['rooms'] ?? '';
@@ -163,51 +152,81 @@ try {
             $areaMin = $_GET['area_min'] ?? '';
             $areaMax = $_GET['area_max'] ?? '';
 
-            // Parse rooms (can be "0,1,2" format)
+            // Parse rooms
+            $roomsArray = [];
             if (!empty($rooms)) {
                 $roomsArray = array_map('intval', explode(',', $rooms));
-                // Handle "3+" case - if 3 is selected, include 3,4,5,6
-                if (in_array(3, $roomsArray)) {
-                    $roomsArray = array_merge($roomsArray, [4, 5, 6]);
-                    $roomsArray = array_unique($roomsArray);
-                }
-                $apiParams['rooms'] = $roomsArray;
             }
-
-            if (!empty($priceMin)) $apiParams['price_min'] = (int)$priceMin;
-            if (!empty($priceMax)) $apiParams['price_max'] = (int)$priceMax;
-            if (!empty($areaMin)) $apiParams['area_min'] = (float)$areaMin;
-            if (!empty($areaMax)) $apiParams['area_max'] = (float)$areaMax;
 
             $results = [
                 'fetched' => 0,
                 'new' => 0,
                 'updated' => 0,
-                'filters' => $apiParams,
+                'debug' => [
+                    'projects' => [],
+                    'method' => 'scraper',
+                ],
                 'errors' => [],
             ];
 
-            try {
-                $flats = $pik->getFlats($apiParams);
+            // Fetch flats for each tracked project using scraper
+            foreach ($trackedProjects as $project) {
+                $slug = $project['slug'] ?? '';
+                if (empty($slug)) {
+                    $results['errors'][] = "Project {$project['name']} has no slug";
+                    continue;
+                }
 
-                foreach ($flats as $flat) {
-                    $blockId = $flat['block_id'] ?? null;
+                $scraperParams = [
+                    'block_slug' => $slug,
+                    'block_id' => $project['pik_id'],
+                    'rooms' => $roomsArray,
+                    'price_min' => !empty($priceMin) ? (int)$priceMin : null,
+                    'price_max' => !empty($priceMax) ? (int)$priceMax : null,
+                    'area_min' => !empty($areaMin) ? (float)$areaMin : null,
+                    'area_max' => !empty($areaMax) ? (float)$areaMax : null,
+                ];
 
-                    // Find which project this flat belongs to
-                    if ($blockId && isset($projectMap[$blockId])) {
-                        $flat['project_id'] = $projectMap[$blockId]['id'];
+                try {
+                    $flats = $scraper->getFlats($scraperParams);
+                    $projectResult = [
+                        'name' => $project['name'],
+                        'slug' => $slug,
+                        'fetched' => count($flats),
+                        'saved' => 0,
+                    ];
+
+                    foreach ($flats as $flat) {
+                        // Set project_id for database
+                        $flat['project_id'] = $project['id'];
+
+                        // Ensure block info is set
+                        if (empty($flat['block_id'])) {
+                            $flat['block_id'] = $project['pik_id'];
+                        }
+                        if (empty($flat['block_name'])) {
+                            $flat['block_name'] = $project['name'];
+                        }
+
                         $result = $db->saveApartment($flat);
-
+                        $projectResult['saved']++;
                         $results['fetched']++;
+
                         if ($result['is_new']) {
                             $results['new']++;
                         } elseif ($result['price_changed']) {
                             $results['updated']++;
                         }
                     }
+
+                    $results['debug']['projects'][] = $projectResult;
+
+                } catch (Exception $e) {
+                    $results['errors'][] = "Error fetching {$project['name']}: " . $e->getMessage();
                 }
-            } catch (Exception $e) {
-                $results['errors'][] = $e->getMessage();
+
+                // Small delay between projects
+                usleep(200000); // 200ms
             }
 
             respond($results);
